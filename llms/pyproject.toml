@@ -9,6 +9,7 @@ description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
     "tiktoken>=0.11.0",
+    "torch>=2.8.0",
 ]
 
 [tool.hatch.build.targets.wheel]
