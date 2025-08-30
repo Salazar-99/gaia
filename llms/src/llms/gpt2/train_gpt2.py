@@ -1,7 +1,6 @@
 from llms import GPT2, GPT2Config, Tokenizer
 from torch.utils.data import DataLoader
 from dataclasses import dataclass
-from ..device import get_device
 from ..train import train, plot_losses
 from ..dataloader import create_dataloader
 import torch
