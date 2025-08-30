@@ -28,5 +28,52 @@ by modifying the `GPT2Config` and `TrainingConfig` dataclasses respectively.
 - [Stanford CS336 Lectures](https://youtube.com/playlist?list=PLoROMvodv4rOY23Y0BoGoBGgQ1zmU_MT_&si=PJJPnM6kjDunXt_R)
 - [Sebastian Raschka's Blog](https://sebastianraschka.com/blog/)
 
+## Try It Yourself
+
+### Prerequisites
+- Python 3.13 or higher
+- [uv](https://docs.astral.sh/uv/) - A fast Python package manager
+
+### Installation
+
+1. **Install uv** (if you haven't already):
+   ```bash
+   # macOS/Linux
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # Or via pip
+   pip install uv
+   ```
+
+3. **Set up the Python environment**:
+   ```bash
+   cd llms
+   uv sync
+   ```
+   This will:
+   - Create a virtual environment with Python 3.13+
+   - Install all required dependencies (PyTorch, tiktoken, numpy, matplotlib)
+   - Generate a `uv.lock` file for reproducible builds
+
+4. **Activate the environment**:
+   ```bash
+   # Option 1: Activate manually
+   source .venv/bin/activate
+   
+   # Option 2: Use uv shell
+   uv shell
+   
+   # Option 3: Run commands directly with uv
+   uv run python -m gpt2.train_gpt2 <path-to-txt-file>
+   ```
+
+### Quick Test
+To verify everything is working, try training a small GPT-2 model from the root of the project:
+```bash
+uv run python -m llms.gpt2.train_gpt2 ./tests/the-verdict.txt
+```
+
+You should see output indicating "Using MPS (Metal Performance Shaders) accelerator" on macOS with Apple Silicon, or appropriate GPU/CPU acceleration messages on other systems.
+
 
 [Name inspiration](https://horizon.fandom.com/wiki/GAIA_(original))
