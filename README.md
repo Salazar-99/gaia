@@ -18,7 +18,7 @@ by modifying the `GPT2Config` and `TrainingConfig` dataclasses respectively.
 - Implement a Joint Embedding Predictive Architecture (JEPA) model
 ### Systems
 - Add code for tracking training runs (WandB or TensorBoard)
-- Add Distributed Data Parralel training
+- Add Distributed Data Parallel training
 - Add Tensor Parallel training
 - Implement GPU kernels in Triton and Cuda to accelerate training
 - Implement KV Caching
@@ -31,7 +31,7 @@ by modifying the `GPT2Config` and `TrainingConfig` dataclasses respectively.
 ## Try It Yourself
 
 ### Prerequisites
-- Python 3.13 or higher
+- Python 3.11 or higher
 - [uv](https://docs.astral.sh/uv/) - A fast Python package manager
 
 ### Installation
