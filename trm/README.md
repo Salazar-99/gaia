@@ -13,6 +13,10 @@ to reproduce the model with the best hyperparameters described in the paper as s
 - Finally, using the `TRMNet` to create `TRM` by applying the "recursive reasoning" process in an outer loop
 
 ## Data
+I copy and pasted the code from the original repo and slightly modified it to work as a single file. I then generated the dataset by running the same command as the original repo:
+```bash
+uv run sudoku_dataset.py --output-dir data/sudoku-extreme-1k-aug-1000  --subsample-size 1000 --num-aug 1000
+```
 
 ## Training
 
