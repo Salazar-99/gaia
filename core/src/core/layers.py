@@ -12,6 +12,29 @@ class GELU(nn.Module):
             (x + 0.44715 * torch.pow(x, 3))
         ))
 
+class SwiGLU(nn.Module):
+    """
+    SwiGLU activation function of the form:
+
+        SwiGLU(x) = Swish(xW1) * (xW2)
+
+    Where * is element-wise multiplication
+
+    A more efficient implementation would be to use a single linear layer and chunk it into two
+    after the forward pass on it but I think this is easier to understand since it more closely resembles the
+    mathematical formulation.
+    """
+
+    def __init__(self, input_dim: int, hidden_dim: int):
+        # Note the TRM paper uses no bias terms
+        self.W1 = nn.Linear(input_dim, hidden_dim, bias=False)
+        self.W2 = nn.Linear(input_dim, hidden_dim, bias=False)
+
+    def forward(self, x: torch.Tensor):
+        x1 = self.W1(x)
+        x2 = self.W1(x)
+        return F.silu(x1) * x2
+
 class FeedForward(nn.Module):
     def __init__(self, emb_dim: int):
         super().__init__()

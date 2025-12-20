@@ -1266,6 +1266,7 @@ version = "0.1.0"
 source = { editable = "trm" }
 dependencies = [
     { name = "argdantic" },
+    { name = "core" },
     { name = "einops" },
     { name = "huggingface-hub" },
     { name = "rotary-embedding-torch" },
@@ -1275,6 +1276,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "argdantic", specifier = ">=1.3.3" },
+    { name = "core", editable = "core" },
     { name = "einops", specifier = ">=0.8.1" },
     { name = "huggingface-hub", specifier = ">=1.0.0" },
     { name = "rotary-embedding-torch", specifier = ">=0.8.9" },
