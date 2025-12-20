@@ -1,8 +1,9 @@
-from llms import GPT2, GPT2Config, Tokenizer
+from .gpt2 import GPT2, GPT2Config
+from .tokenizer import Tokenizer
+from .dataloader import create_dataloader
+from core.train import train, plot_losses
 from torch.utils.data import DataLoader
 from dataclasses import dataclass
-from ..train import train, plot_losses
-from ..dataloader import create_dataloader
 import torch
 import argparse
 
@@ -32,7 +33,6 @@ def train_gpt2(train_loader: DataLoader, val_loader: DataLoader, config: GPT2Con
         val_loader,
         optimizer,
         TrainingConfig.n_epochs,
-        tokenizer=Tokenizer("gpt2"),
         eval_freq=5,
         eval_iter=1,
     )

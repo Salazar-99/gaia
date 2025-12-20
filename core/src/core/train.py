@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from .device import get_device
-from .tokenizer import Tokenizer
 import matplotlib.pyplot as plt
 
 
@@ -57,7 +56,6 @@ def train(
     val_loader: DataLoader,
     optimizer,
     n_epochs: int,
-    tokenizer: Tokenizer,
     eval_freq: int,
     eval_iter: int,
 ):

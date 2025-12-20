@@ -1,4 +1,5 @@
-from llms import GPT2, GPT2Config, Tokenizer, get_device
+from gpt2 import GPT2, GPT2Config, Tokenizer
+from core import get_device
 import torch
 
 
@@ -21,7 +22,7 @@ def test_GPT2_forward():
     # Disable dropout
     gpt2.eval()
     test_input = "Testing GPT2 forward pass works"
-    test_tokens = tokenizer.encode(test_input)
+    test_tokens = tokenizer.encode(test_input, allowed_special={"<|endoftext|>"})
 
     # Move input tensor to the same device as the model
     device = get_device()

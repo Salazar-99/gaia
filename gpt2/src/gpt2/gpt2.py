@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-from ..transformer import Transformer
-from ..layers import LayerNorm
+from core.transformer import Transformer
+from core.layers import LayerNorm
 from dataclasses import dataclass
 
 

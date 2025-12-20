@@ -1,0 +1,27 @@
+[project]
+name = "gaia"
+version = "0.1.0"
+description = "Gaia workspace"
+requires-python = ">=3.11"
+dependencies = [
+    "core",
+    "gpt2",
+    "trm",
+    # Shared dependencies (pinned for consistency across packages)
+    "numpy>=2.3.4",
+    "torch>=2.9.0",
+]
+
+[tool.uv.workspace]
+members = ["core", "gpt2", "trm"]
+
+[tool.uv.sources]
+core = { workspace = true }
+gpt2 = { workspace = true }
+trm = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
+

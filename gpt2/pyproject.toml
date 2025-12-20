@@ -3,21 +3,18 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "llms"
+name = "gpt2"
 version = "0.1.0"
-description = "Add your description here"
+description = "GPT-2 implementation"
 requires-python = ">=3.13"
 dependencies = [
+    "core",
     "tiktoken>=0.11.0",
-    "torch>=2.8.0",
-    "numpy>=1.24.0",
     "matplotlib>=3.10.6",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/llms"]
+packages = ["src/gpt2"]
 
-[dependency-groups]
-dev = [
-    "pytest>=8.4.1",
-]
+[tool.uv.sources]
+core = { workspace = true }
