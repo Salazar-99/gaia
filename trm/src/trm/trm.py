@@ -14,22 +14,39 @@ class TRMMLP(nn.Module):
     If there is training instability this is a place worth checking for improvements.
     """
 
-    def __init__(self, hidden_dim: int):
+    def __init__(self, hidden_dim: int, mlp_hidden_dim: int | None = None):
         super().__init__()
-        self.layers = nn.Sequential(
-            nn.Linear(hidden_dim), SwiGLU(), nn.Linear(hidden_dim)
-        )
+        # Default to 4x hidden_dim for MLP intermediate size (common practice)
+        if mlp_hidden_dim is None:
+            mlp_hidden_dim = hidden_dim * 4
+        self.fc_in = nn.Linear(hidden_dim, mlp_hidden_dim)
+        self.swiglu = SwiGLU(mlp_hidden_dim, mlp_hidden_dim)
+        self.fc_out = nn.Linear(mlp_hidden_dim, hidden_dim)
 
     def forward(self, x: torch.Tensor):
-        return self.layers(x)
+        x = self.fc_in(x)
+        x = self.swiglu(x)
+        x = self.fc_out(x)
+        return x
+
 
 class TRMNet(nn.Module):
-    def __init__(self, hidden_dim: int, n_layers: int):
+    def __init__(
+        self,
+        hidden_dim: int,
+        head_dim: int = 64,
+        n_heads: int = 4,
+        n_kv_heads: int = 4,
+    ):
+        super().__init__()
         self.attention = GQA(
-            hidden_dim,
+            hidden_dim=hidden_dim,
+            head_dim=head_dim,
+            n_heads=n_heads,
+            n_kv_heads=n_kv_heads,
         )
         self.mlp = TRMMLP(hidden_dim)
-        self.rms = RMSNorm()
+        self.rms = RMSNorm(hidden_dim)
 
     def forward(self, x: torch.Tensor):
         # Attention
@@ -39,7 +56,7 @@ class TRMNet(nn.Module):
         # TRMLMLP
         z = self.mlp(y)
         # Add the residual and Norm
-        return self.rms(x + z)
+        return self.rms(y + z)
 
 
 @dataclass
@@ -54,14 +71,17 @@ class TRM(nn.Module):
     a two-layer MLP with SwiGLU activation, and no ACT.
     """
 
-    def __init__(self, T: int, n: int, hidden_dim: int, n_layers: int):
+    def __init__(self, T: int, n: int, hidden_dim: int, vocab_size: int = 11):
         super().__init__()
         self.T = T
         self.n = n
+        self.vocab_size = vocab_size
         self.embedding = nn.Embedding(
-            num_embeddings=11, embedding_dim=hidden_dim
+            num_embeddings=vocab_size, embedding_dim=hidden_dim
         )  # vocab_size=11 for sudoku (PAD + 0-9)
-        self.net = TRMNet(hidden_dim, n_layers)
+        self.net = TRMNet(hidden_dim)
+        # Output projection to vocabulary logits
+        self.lm_head = nn.Linear(hidden_dim, vocab_size, bias=False)
         # Non-learnable initial params to match original implementation
         self.y_init = nn.Buffer(torch.randn(hidden_dim), persistent=True)
         self.z_init = nn.Buffer(torch.randn(hidden_dim), persistent=True)
@@ -84,4 +104,5 @@ class TRM(nn.Module):
             for _ in range(self.T - 1):
                 y, z = self._latent_recursion(x, y, z, self.n)
         y, _ = self._latent_recursion(x, y, z, self.n)
-        return y
+        # Project to vocabulary logits
+        return self.lm_head(y)

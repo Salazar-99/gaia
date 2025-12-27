@@ -1,3 +1,0 @@
-- Finish TRM code, needs proper config passing
-- Add code to create sudoku dataset
-- Add code to initialize TRM, train it on sudoku, and report results
