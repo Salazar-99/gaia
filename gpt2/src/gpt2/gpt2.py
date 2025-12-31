@@ -1,7 +1,6 @@
 import torch
 from torch import nn
-from core.transformer import Transformer
-from core.layers import LayerNorm
+from gaia_layers import Transformer, LayerNorm
 from dataclasses import dataclass
 
 

@@ -75,5 +75,32 @@ uv run python -m llms.gpt2.train_gpt2 ./tests/the-verdict.txt
 
 You should see output indicating "Using MPS (Metal Performance Shaders) accelerator" on macOS with Apple Silicon, or appropriate GPU/CPU acceleration messages on other systems.
 
+## Core Packages
+
+The `core/` directory contains modular, independently installable packages:
+
+| Package | Description |
+|---------|-------------|
+| `gaia-layers` | Neural network layers and building blocks |
+| `gaia-metrics` | Training metrics and logging |
+| `gaia-dashboard` | Training visualization |
+| `gaia-checkpoints` | Checkpoint management |
+| `gaia-core` | Umbrella package (installs all above) |
+
+```bash
+# Install individual packages
+uv add gaia-layers
+
+# Install everything
+uv add gaia-core
+
+# From git (external projects)
+uv add "gaia-layers @ git+https://github.com/user/gaia#subdirectory=core/layers"
+```
+
+```python
+from gaia_layers import Transformer
+from gaia_checkpoints import CheckpointManager
+```
 
 [Name inspiration](https://horizon.fandom.com/wiki/GAIA_(original))

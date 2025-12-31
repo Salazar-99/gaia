@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gaia-core"
+version = "0.1.0"
+description = "All Gaia core utilities (umbrella package)"
+requires-python = ">=3.11"
+dependencies = [
+    "gaia-layers",
+    "gaia-metrics",
+    "gaia-dashboard",
+    "gaia-checkpoints",
+    "torch>=2.9.0",
+    "matplotlib>=3.10.0",
+]
+
+[tool.uv.sources]
+gaia-layers = { workspace = true }
+gaia-metrics = { workspace = true }
+gaia-dashboard = { workspace = true }
+gaia-checkpoints = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gaia_core"]
+

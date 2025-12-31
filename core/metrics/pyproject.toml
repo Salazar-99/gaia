@@ -3,12 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "core"
+name = "gaia-metrics"
 version = "0.1.0"
-description = "Core shared utilities"
+description = "Gaia metrics and logging utilities"
 requires-python = ">=3.11"
 dependencies = []
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/core"]
+packages = ["src/gaia_metrics"]
 

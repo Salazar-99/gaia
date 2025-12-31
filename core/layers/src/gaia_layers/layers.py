@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 class GELU(nn.Module):
     def __init__(self):
@@ -26,13 +27,14 @@ class SwiGLU(nn.Module):
     """
 
     def __init__(self, input_dim: int, hidden_dim: int):
+        super().__init__()
         # Note the TRM paper uses no bias terms
         self.W1 = nn.Linear(input_dim, hidden_dim, bias=False)
         self.W2 = nn.Linear(input_dim, hidden_dim, bias=False)
 
     def forward(self, x: torch.Tensor):
         x1 = self.W1(x)
-        x2 = self.W1(x)
+        x2 = self.W2(x)
         return F.silu(x1) * x2
 
 class FeedForward(nn.Module):

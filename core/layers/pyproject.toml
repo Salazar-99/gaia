@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gaia-layers"
+version = "0.1.0"
+description = "Gaia core layers (attention, transformer blocks, etc.)"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.9.0",
+    "einops>=0.8.1",
+    "rotary-embedding-torch>=0.8.9",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gaia_layers"]
+

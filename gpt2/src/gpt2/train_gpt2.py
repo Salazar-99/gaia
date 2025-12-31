@@ -1,7 +1,7 @@
 from .gpt2 import GPT2, GPT2Config
 from .tokenizer import Tokenizer
 from .dataloader import create_dataloader
-from core.train import train, plot_losses
+from gaia_core import train, plot_losses
 from torch.utils.data import DataLoader
 from dataclasses import dataclass
 import torch

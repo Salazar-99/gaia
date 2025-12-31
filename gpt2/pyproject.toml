@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "GPT-2 implementation"
 requires-python = ">=3.13"
 dependencies = [
-    "core",
+    "gaia-core",
+    "gaia-layers",
     "tiktoken>=0.11.0",
     "matplotlib>=3.10.6",
 ]
@@ -17,4 +18,5 @@ dependencies = [
 packages = ["src/gpt2"]
 
 [tool.uv.sources]
-core = { workspace = true }
+gaia-core = { workspace = true }
+gaia-layers = { workspace = true }

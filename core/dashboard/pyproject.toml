@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gaia-dashboard"
+version = "0.1.0"
+description = "Gaia training dashboard and visualization"
+requires-python = ">=3.11"
+dependencies = [
+    "gaia-metrics",
+]
+
+[tool.uv.sources]
+gaia-metrics = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gaia_dashboard"]
+

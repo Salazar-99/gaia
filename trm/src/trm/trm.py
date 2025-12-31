@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn import RMSNorm
 from dataclasses import dataclass
-from core import GQA, SwiGLU
+from gaia_layers import GQA, SwiGLU
 
 
 class TRMMLP(nn.Module):
