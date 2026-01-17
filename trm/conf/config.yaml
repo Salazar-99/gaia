@@ -1,0 +1,58 @@
+# TRM Training Configuration
+# Override any value via CLI: python train_trm_gaia.py training.lr=1e-5
+
+# =============================================================================
+# Gaia Core Config (metrics, checkpointing)
+# =============================================================================
+metrics:
+  endpoint: null  # OTLP endpoint, e.g., http://localhost:4318/v1/metrics
+  run_id: null    # Auto-generated if null
+  headers: null
+  timeout: null
+
+checkpoint:
+  path: checkpoints/trm_sudoku
+  storage: local  # "local" or "azure"
+  interval: 1     # Save every N epochs
+  max_queue_size: 3
+
+# =============================================================================
+# Data
+# =============================================================================
+data:
+  path: data/sudoku-extreme-1k-aug-1000
+  test_path: data/sudoku-extreme-1k-aug-1000
+
+# =============================================================================
+# Model
+# =============================================================================
+model:
+  hidden_dim: 512
+  T: 3            # Number of outer iterations
+  n: 6            # Number of inner iterations
+  vocab_size: 11  # PAD + 0-9 for sudoku
+
+# =============================================================================
+# Training
+# =============================================================================
+training:
+  global_batch_size: 768
+  epochs: 60000
+  lr: 1e-4
+  min_lr: 1e-5
+  weight_decay: 0.01
+  beta1: 0.9
+  beta2: 0.95
+  seed: 0
+
+# =============================================================================
+# Evaluation
+# =============================================================================
+eval:
+  interval: 100       # Evaluate every N epochs
+  max_samples: null   # Max samples to evaluate (null = all)
+
+# =============================================================================
+# Device
+# =============================================================================
+device: null  # null = auto-detect (cuda > mps > cpu)

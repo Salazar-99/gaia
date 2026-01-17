@@ -11,7 +11,7 @@ dependencies = [
     "gaia-core",
     "gaia-layers",
     "tiktoken>=0.11.0",
-    "matplotlib>=3.10.6",
+    # matplotlib comes transitively from gaia-core
 ]
 
 [tool.hatch.build.targets.wheel]

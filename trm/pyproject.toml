@@ -9,12 +9,11 @@ description = "TRM package"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "argdantic>=1.3.3",
     "gaia-core",
     "gaia-layers",
-    "einops>=0.8.1",
+    # einops & rotary-embedding-torch come transitively from gaia-layers
     "huggingface-hub>=1.0.0",
-    "rotary-embedding-torch>=0.8.9",
+    "hydra-core>=1.3",
     "tqdm>=4.67.1",
 ]
 

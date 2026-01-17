@@ -7,10 +7,14 @@ dependencies = [
     "gaia-core",
     "gpt2",
     "trm",
-    # Shared dependencies (pinned for consistency across packages)
-    "numpy>=2.3.4",
-    "torch>=2.9.0",
 ]
+
+# Shared dependency versions (for reference - uv.lock ensures consistency)
+# torch>=2.9.0        - declared in gaia-layers, inherited by all
+# numpy>=2.3.4        - declared here for workspace-wide usage
+# matplotlib>=3.10.0  - declared in gaia-core
+# einops>=0.8.1       - declared in gaia-layers
+# rotary-embedding-torch>=0.8.9 - declared in gaia-layers
 
 [tool.uv.workspace]
 members = ["core/*", "gpt2", "trm"]

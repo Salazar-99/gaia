@@ -7,7 +7,11 @@ name = "gaia-metrics"
 version = "0.1.0"
 description = "Gaia metrics and logging utilities"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "opentelemetry-exporter-otlp-proto-http",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/gaia_metrics"]

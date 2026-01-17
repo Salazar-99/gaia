@@ -12,8 +12,9 @@ dependencies = [
     "gaia-metrics",
     "gaia-dashboard",
     "gaia-checkpoints",
-    "torch>=2.9.0",
+    # torch comes transitively from gaia-layers
     "matplotlib>=3.10.0",
+    "pydantic>=2.0",
 ]
 
 [tool.uv.sources]
