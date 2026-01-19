@@ -5,11 +5,10 @@ and CheckpointSaver services used during training.
 """
 
 from typing import Optional, Dict
-from opentelemetry.metrics import Gauge
 
 from .config import MetricsConfig, CheckpointConfig
 from gaia_dashboard import Dashboard
-from gaia_metrics import initialize_metrics, create_gauge
+from gaia_metrics import initialize_metrics, create_gauge, Gauge
 from gaia_checkpoints import CheckpointSaver
 
 

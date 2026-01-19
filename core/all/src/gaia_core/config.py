@@ -13,6 +13,9 @@ import uuid
 class MetricsConfig(BaseModel):
     """Configuration for OpenTelemetry metrics export."""
 
+    enabled: bool = True
+    """Enable metrics tracking. Set to False to disable all metric collection."""
+
     endpoint: Optional[str] = None
     """OTLP endpoint for metrics export (e.g., http://localhost:4318/v1/metrics)"""
 
@@ -24,6 +27,9 @@ class MetricsConfig(BaseModel):
 
     timeout: Optional[float] = None
     """Optional timeout for OTLP exporter."""
+
+    use_console: bool = False
+    """Use console/stdout exporter instead of OTLP. Auto-enabled if no endpoint."""
 
     def get_run_id(self) -> str:
         """Get run_id, generating one if not set."""

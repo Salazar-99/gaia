@@ -5,15 +5,12 @@
 # Gaia Core Config (metrics, checkpointing)
 # =============================================================================
 metrics:
-  endpoint: null  # OTLP endpoint, e.g., http://localhost:4318/v1/metrics
-  run_id: null    # Auto-generated if null
-  headers: null
-  timeout: null
+  enabled: false
 
 checkpoint:
   path: checkpoints/trm_sudoku
   storage: local  # "local" or "azure"
-  interval: 1     # Save every N epochs
+  interval: 10000     # Save every N epochs
   max_queue_size: 3
 
 # =============================================================================
@@ -27,7 +24,7 @@ data:
 # Model
 # =============================================================================
 model:
-  hidden_dim: 512
+  hidden_dim: 256
   T: 3            # Number of outer iterations
   n: 6            # Number of inner iterations
   vocab_size: 11  # PAD + 0-9 for sudoku

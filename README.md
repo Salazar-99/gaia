@@ -75,6 +75,50 @@ uv run python -m llms.gpt2.train_gpt2 ./tests/the-verdict.txt
 
 You should see output indicating "Using MPS (Metal Performance Shaders) accelerator" on macOS with Apple Silicon, or appropriate GPU/CPU acceleration messages on other systems.
 
+### GPU Profiling with NVIDIA Nsight Tools
+
+For detailed GPU performance analysis on NVIDIA GPUs, you can use Nsight Systems and Nsight Compute.
+
+#### Nsight Systems (System-wide profiling)
+
+Nsight Systems captures a timeline of CPU and GPU activity, helping identify bottlenecks and understand the overall execution flow:
+
+```bash
+nsys profile \
+  --trace=cuda,nvtx,osrt \
+  --sample=none \
+  -o nsys_report \
+  python -m llms.gpt2.train_gpt2 <path-to-corpus-txt-file>
+```
+
+- `--trace=cuda,nvtx,osrt` — Traces CUDA API calls, NVTX annotations, and OS runtime libraries
+- `--sample=none` — Disables CPU sampling (reduces overhead)
+- `-o nsys_report` — Output file name (generates `nsys_report.nsys-rep`)
+
+Open the report in Nsight Systems GUI: `nsys-ui nsys_report.nsys-rep`
+
+#### Nsight Compute (Kernel-level profiling)
+
+Nsight Compute provides detailed metrics for individual CUDA kernels, useful for optimizing specific operations:
+
+```bash
+ncu \
+  --set full \
+  --target-processes all \
+  --kernel-name regex:.*gemm.* \
+  -o ncu_report \
+  python -m llms.gpt2.train_gpt2 <path-to-corpus-txt-file>
+```
+
+- `--set full` — Collects the full set of metrics (comprehensive but slower)
+- `--target-processes all` — Profiles all child processes
+- `--kernel-name regex:.*gemm.*` — Only profiles kernels matching the regex (e.g., matrix multiplication kernels)
+- `-o ncu_report` — Output file name (generates `ncu_report.ncu-rep`)
+
+Open the report in Nsight Compute GUI: `ncu-ui ncu_report.ncu-rep`
+
+> **Note:** Nsight tools require NVIDIA GPUs and the [NVIDIA Nsight Systems](https://developer.nvidia.com/nsight-systems) and [Nsight Compute](https://developer.nvidia.com/nsight-compute) tools to be installed.
+
 ## Core Packages
 
 The `core/` directory contains modular, independently installable packages:

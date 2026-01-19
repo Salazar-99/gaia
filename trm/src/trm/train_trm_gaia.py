@@ -1,5 +1,6 @@
 import hydra
 from omegaconf import DictConfig
+from pathlib import Path
 import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -7,7 +8,11 @@ from torch.utils.data import DataLoader
 from typing import Any, Dict, Tuple
 
 from trm import TRM
-from trm.sudoku_dataset import PuzzleDataset, PuzzleDatasetConfig, PuzzleDatasetMetadata
+from trm.sudoku_dataset import (
+    PuzzleDataset,
+    PuzzleDatasetConfig,
+    PuzzleDatasetMetadata,
+)
 
 # Import gaia core libraries
 from gaia_core import (
@@ -38,7 +43,12 @@ def create_dataloader(
     cfg: DictConfig, data_path: str, device: str, split: str = "train"
 ) -> Tuple[DataLoader, PuzzleDatasetMetadata]:
     """Create dataloader for sudoku dataset."""
-    dataset_config = _create_dataset_config(cfg, data_path, split)
+    # Resolve data path relative to config file location (trm/conf/config.yaml)
+    # Config file is at trm/conf/config.yaml, so data/ is at trm/data/
+    config_dir = Path(__file__).parent.parent.parent  # trm/
+    resolved_data_path = (config_dir / data_path).resolve()
+
+    dataset_config = _create_dataset_config(cfg, str(resolved_data_path), split)
     dataset = PuzzleDataset(dataset_config, split=split)
 
     # pin_memory is only beneficial for CUDA devices
@@ -282,7 +292,7 @@ def main(cfg: DictConfig):
     # Training loop
     model.train()
     step = 0
-
+    print("Starting training...")
     for epoch in range(cfg.training.epochs):
         for _, batch, _ in train_loader:
             if step >= total_steps:
