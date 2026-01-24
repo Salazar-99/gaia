@@ -105,7 +105,7 @@ def create_model(
     return model, optimizer, scheduler
 
 
-def train_batch(
+def train_step(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
     scheduler: CosineAnnealingLR,
@@ -299,7 +299,7 @@ def main(cfg: DictConfig):
                 break
 
             step += 1
-            metrics = train_batch(model, optimizer, scheduler, batch, device)
+            metrics = train_step(model, optimizer, scheduler, batch, device)
 
             ctx.dashboard.update(
                 training_loss=metrics["loss"],
