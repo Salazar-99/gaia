@@ -139,7 +139,7 @@ class Dashboard:
         with console.capture() as capture:
             console.print(dashboard)
 
-        print("\033[0;0H" + capture.get())
+        print("\033[2J\033[H" + capture.get())
 
     def _format_duration(self, seconds):
         """Format duration as hours, minutes, seconds."""

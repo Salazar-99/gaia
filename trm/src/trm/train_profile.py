@@ -1,15 +1,15 @@
 import hydra
+import os
 from omegaconf import DictConfig
+from pathlib import Path
 import torch
-from torch.profiler import (
-    profile,
-    ProfilerActivity,
-    schedule,
-    tensorboard_trace_handler,
-)
+from torch.profiler import profile, ProfilerActivity
 
-from trm.train_trm_gaia import create_dataloaders, create_model, train_step
+from .train import create_dataloaders, create_model, train_step
 from gaia_core import print_device_info
+
+# Use absolute path for profile logs (relative to this file's location)
+PROFILE_LOGS_DIR = Path(__file__).parent.parent.parent / "profile_logs"
 
 
 @hydra.main(version_base=None, config_path="../../conf", config_name="config")
@@ -42,34 +42,43 @@ def main(cfg: DictConfig):
     model, optimizer, scheduler = create_model(cfg, train_metadata, total_steps, device)
     print(f"Model has {sum(p.numel() for p in model.parameters())} parameters")
 
-    # Setup profiler with CPU and CUDA activities
-    # Schedule: wait=1 (skip first step), warmup=3 (warmup 3 steps), active=10 (profile 10 steps), repeat=1
-    profiler_schedule = schedule(wait=1, warmup=3, active=10, repeat=1)
-
     print("Starting profiling...")
     model.train()
 
+    # Create profile logs directory
+    os.makedirs(PROFILE_LOGS_DIR, exist_ok=True)
+    print(f"Profile logs will be saved to: {PROFILE_LOGS_DIR}")
+
+    # Warmup steps (not profiled)
+    print("Running warmup steps...")
+    warmup_steps = 3
+    step = 0
+    for _, batch, _ in train_loader:
+        if step >= warmup_steps:
+            break
+        _ = train_step(model, optimizer, scheduler, batch, device)
+        step += 1
+
+    # Profiled steps
+    print("Running profiled steps...")
+    profile_steps = 5
     with profile(
         activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-        schedule=profiler_schedule,
-        on_trace_ready=tensorboard_trace_handler("./profile_logs"),
         record_shapes=True,
         with_stack=True,
     ) as prof:
         step = 0
-        max_steps = 10  # Profile a small number of steps
-
         for _, batch, _ in train_loader:
-            if step >= max_steps:
+            if step >= profile_steps:
                 break
-
             _ = train_step(model, optimizer, scheduler, batch, device)
-            prof.step()
-
             step += 1
 
-    print("Profiling complete. Traces saved to ./profile_logs")
-    print("View in TensorBoard with: tensorboard --logdir=./profile_logs")
+    # Export trace
+    trace_file = PROFILE_LOGS_DIR / "trace.json"
+    prof.export_chrome_trace(str(trace_file))
+    print(f"Profiling complete. Trace saved to {trace_file}")
+    print(f"Open in Chrome at chrome://tracing or use Perfetto UI")
 
 
 if __name__ == "__main__":

@@ -79,6 +79,22 @@ You should see output indicating "Using MPS (Metal Performance Shaders) accelera
 
 For detailed GPU performance analysis on NVIDIA GPUs, you can use Nsight Systems and Nsight Compute.
 
+#### Installation
+
+Install `nsys` and `ncu` via the CUDA toolkit:
+
+```bash
+# Add NVIDIA's package repository (Ubuntu)
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+
+# Install CUDA toolkit
+sudo apt update && sudo apt install -y cuda-toolkit
+
+# Add to PATH (add to ~/.bashrc for persistence)
+export PATH="/usr/local/cuda/bin:$PATH"
+```
+
 #### Nsight Systems (System-wide profiling)
 
 Nsight Systems captures a timeline of CPU and GPU activity, helping identify bottlenecks and understand the overall execution flow:
@@ -117,7 +133,7 @@ ncu \
 
 Open the report in Nsight Compute GUI: `ncu-ui ncu_report.ncu-rep`
 
-> **Note:** Nsight tools require NVIDIA GPUs and the [NVIDIA Nsight Systems](https://developer.nvidia.com/nsight-systems) and [Nsight Compute](https://developer.nvidia.com/nsight-compute) tools to be installed.
+> **Note:** Nsight tools require NVIDIA GPUs. For other Linux distributions, see the [CUDA Toolkit Downloads](https://developer.nvidia.com/cuda-downloads).
 
 ## Core Packages
 

@@ -118,7 +118,7 @@ def train_step(
     outputs = model(batch["inputs"])
 
     loss = nn.CrossEntropyLoss()(
-        outputs.view(-1, outputs.size(-1)), batch["labels"].view(-1)
+        outputs.view(-1, outputs.size(-1)), batch["labels"].view(-1).long()
     )
 
     loss.backward()
@@ -183,7 +183,7 @@ def evaluate_model(
 
             # Compute cross-entropy loss (averaged over all non-ignored tokens)
             loss = nn.CrossEntropyLoss()(
-                outputs.view(-1, outputs.size(-1)), labels.view(-1)
+                outputs.view(-1, outputs.size(-1)), labels.view(-1).long()
             )
             total_loss += loss.item() * batch_size_to_use
 
