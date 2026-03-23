@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nanojaxpt"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "array-record>=0.8.3",
+    "grain>=0.2.16",
+    "huggingface_hub>=0.26.0",
+    "pyarrow>=23.0.1",
+    "rich>=14.2.0",
+    "tokenizers>=0.22.2",
+]
+
+[project.scripts]
+nanojaxpt-download = "nanojaxpt.data.download:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nanojaxpt"]

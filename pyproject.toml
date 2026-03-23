@@ -7,6 +7,7 @@ dependencies = [
     "gaia-core",
     "gpt2",
     "trm",
+    "nanojaxpt",
 ]
 
 # Shared dependency versions (for reference - uv.lock ensures consistency)
@@ -17,7 +18,12 @@ dependencies = [
 # rotary-embedding-torch>=0.8.9 - declared in gaia-layers
 
 [tool.uv.workspace]
-members = ["core/*", "gpt2", "trm"]
+members = [
+    "core/*",
+ "gpt2",
+ "trm",
+ "nanojaxpt",
+]
 
 [tool.uv.sources]
 gaia-core = { workspace = true }
@@ -27,6 +33,7 @@ gaia-dashboard = { workspace = true }
 gaia-checkpoints = { workspace = true }
 gpt2 = { workspace = true }
 trm = { workspace = true }
+nanojaxpt = { workspace = true }
 
 [dependency-groups]
 dev = [

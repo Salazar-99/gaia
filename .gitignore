@@ -1,8 +1,15 @@
-NOTES.md
 .venv
 __pycache__/
 .pytest_cache/
-data/
 
 # Personal
 TODO.txt
+NOTES.md
+
+# Training data
+trm/data/*
+nanojaxpt/climbmix_tokens/*
+
+dist/
+
+*.egg-info
