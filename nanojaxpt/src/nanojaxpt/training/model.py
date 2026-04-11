@@ -12,10 +12,10 @@ import jax.numpy as jnp
 class GPTConfig:
     sequence_len: int = 2048
     vocab_size: int = 50257
-    n_layer: int = 12
-    n_head: int = 6  # number of query heads
-    n_kv_head: int = 6  # number of key/value heads (GQA)
-    n_embd: int = 768
+    n_layer: int = 24
+    n_head: int = 12  # number of query heads
+    n_kv_head: int = 12  # number of key/value heads (GQA)
+    n_embd: int = 1536
     # Sliding window attention pattern string, tiled across layers. Final layer always L.
     # Characters: L=long (full context), S=short (half context)
     # Examples: "L"=all full context, "SL"=alternating, "SSL"=two short then one long

@@ -579,6 +579,58 @@ def run(
     print(f"Total tokens (approx): {token_count.value:,} / target {token_target:,}")
 
 
+def run_test_shard(
+    output_dir: Path,
+    shard_cache: Path,
+    revision: str | None,
+    tokenizer_batch_size: int,
+) -> None:
+    """Download the held-out validation shard, tokenize, and write test-tokens.arrayrecord."""
+    import array_record.python.array_record_module as ar_module
+    from huggingface_hub import hf_hub_download
+    from tokenizers import Tokenizer
+
+    output_path = output_dir / "test-tokens.arrayrecord"
+    if output_path.exists():
+        print(f"Test shard already exists: {output_path}")
+        return
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    shard_cache.mkdir(parents=True, exist_ok=True)
+
+    fname = _shard_filename(MAX_SHARD_INDEX)
+    print(f"Downloading validation shard {fname} ...")
+    path = hf_hub_download(
+        repo_id=CLIMBMIX_REPO_ID,
+        filename=fname,
+        repo_type="dataset",
+        local_dir=str(shard_cache),
+        revision=revision,
+    )
+
+    tok = Tokenizer.from_pretrained("gpt2")
+    pf = pq.ParquetFile(path)
+    writer = ar_module.ArrayRecordWriter(
+        str(output_path), f"group_size:{DEFAULT_ARRAYRECORD_GROUP_SIZE}"
+    )
+
+    total_tokens = 0
+    for rg_idx in range(pf.num_row_groups):
+        texts = pf.read_row_group(rg_idx).column("text").to_pylist()
+        for start in range(0, len(texts), tokenizer_batch_size):
+            batch = [t for t in texts[start : start + tokenizer_batch_size] if isinstance(t, str) and t]
+            if not batch:
+                continue
+            for encoding in tok.encode_batch(batch):
+                ids = encoding.ids
+                if ids:
+                    writer.write(_pack_token_record(ids))
+                    total_tokens += len(ids)
+
+    writer.close()
+    print(f"Wrote {output_path}  ({total_tokens:,} tokens)")
+
+
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description=(
@@ -675,6 +727,12 @@ def main() -> None:
         arrayrecord_file_size_mb=max(1, args.arrayrecord_file_size_mb),
         record_queue_batch_mb=max(1, args.record_queue_batch_mb),
         record_queue_maxsize=max(1, args.record_queue_maxsize),
+    )
+    run_test_shard(
+        output_dir=args.output,
+        shard_cache=shard_cache,
+        revision=args.revision,
+        tokenizer_batch_size=max(1, args.tokenizer_batch_size),
     )
 
 

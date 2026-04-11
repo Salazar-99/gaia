@@ -17,6 +17,7 @@ class DatasetConfig:
     """Config for reading tokenized ArrayRecord shards with Grain."""
 
     data_dir: Path | str = Path("climbmix_tokens")
+    token_file_glob: str = TOKEN_FILE_GLOB
     batch_size: int = 8
     sequence_length: int = 1024
     shuffle: bool = True
@@ -29,13 +30,16 @@ class DatasetConfig:
         return Path(self.data_dir).expanduser().resolve()
 
 
-def list_arrayrecord_files(data_dir: Path | str) -> list[Path]:
+def list_arrayrecord_files(
+    data_dir: Path | str,
+    token_file_glob: str = TOKEN_FILE_GLOB,
+) -> list[Path]:
     """Returns sorted ArrayRecord token files in a directory."""
     root = Path(data_dir).expanduser().resolve()
-    files = sorted(root.glob(TOKEN_FILE_GLOB))
+    files = sorted(root.glob(token_file_glob))
     if not files:
         raise FileNotFoundError(
-            f"No files matching {TOKEN_FILE_GLOB!r} found in {root}."
+            f"No files matching {token_file_glob!r} found in {root}."
         )
     return files
 
@@ -67,7 +71,7 @@ def build_grain_token_dataset(config: DatasetConfig) -> Any:
     """
     Builds a Grain MapDataset that yields token arrays per ArrayRecord entry.
     """
-    files = list_arrayrecord_files(config.normalized_data_dir())
+    files = list_arrayrecord_files(config.normalized_data_dir(), config.token_file_glob)
 
     source = grain.sources.ArrayRecordDataSource(
         paths=[str(path) for path in files],
