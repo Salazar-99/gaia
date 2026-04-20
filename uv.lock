@@ -678,6 +678,13 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/17/9c/e897231c880f69e32251d3b1145894d7a04e4342d9bef8d29644c440d11b/jax-0.9.2-py3-none-any.whl", hash = "sha256:822a8ae155ab42e7bc59f2ae7a28705bcfccb01a7e76abfc8ae996190cdc5598", size = 3099142, upload-time = "2026-03-18T23:25:59.94Z" },
 ]
 
+[package.optional-dependencies]
+tpu = [
+    { name = "jaxlib" },
+    { name = "libtpu" },
+    { name = "requests" },
+]
+
 [[package]]
 name = "jaxlib"
 version = "0.9.2"
@@ -785,6 +792,17 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/99/dd/841e9a66c4715477ea0abc78da039832fbb09dac5c35c58dc4c41a407b8a/kiwisolver-1.4.9-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:aedff62918805fb62d43a4aa2ecd4482c380dc76cd31bd7c8878588a61bd0369", size = 2391835, upload-time = "2025-08-10T21:27:34.23Z" },
     { url = "https://files.pythonhosted.org/packages/0c/28/4b2e5c47a0da96896fdfdb006340ade064afa1e63675d01ea5ac222b6d52/kiwisolver-1.4.9-cp314-cp314t-win_amd64.whl", hash = "sha256:1fa333e8b2ce4d9660f2cda9c0e1b6bafcfb2457a9d259faa82289e73ec24891", size = 79988, upload-time = "2025-08-10T21:27:35.587Z" },
     { url = "https://files.pythonhosted.org/packages/80/be/3578e8afd18c88cdf9cb4cffde75a96d2be38c5a903f1ed0ceec061bd09e/kiwisolver-1.4.9-cp314-cp314t-win_arm64.whl", hash = "sha256:4a48a2ce79d65d363597ef7b567ce3d14d68783d2b2263d98db3d9477805ba32", size = 70260, upload-time = "2025-08-10T21:27:36.606Z" },
+]
+
+[[package]]
+name = "libtpu"
+version = "0.0.37"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5d/70/e5724a00c15f18f90e964d1d60df58de94ddb76e3953b937a69892361005/libtpu-0.0.37-cp313-cp313-manylinux_2_31_x86_64.whl", hash = "sha256:1eeba282e09a7932b953ac14395447bcd4fea9239604aee2c73f4730ad84d38d", size = 212955198, upload-time = "2026-03-05T01:05:11.339Z" },
+    { url = "https://files.pythonhosted.org/packages/08/80/2e6bb53fd226a6d47d35914d86bf140a752e4b6bb92ee30033004cc87966/libtpu-0.0.37-cp313-cp313t-manylinux_2_31_x86_64.whl", hash = "sha256:2ca215b45e9e62b7029dbfe64ff65c237640a197e6bbd786f47693e2348adca9", size = 212955996, upload-time = "2026-03-05T01:05:31.411Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/4f/22ebd2cb3a7ac2199b4d92a947cac01618095d290d624da2c3f2e655deff/libtpu-0.0.37-cp314-cp314-manylinux_2_31_x86_64.whl", hash = "sha256:476850afbfb014c473e91295bea29752cfd038e94c13c3f339a5956680beccf7", size = 212954958, upload-time = "2026-03-05T01:05:21.463Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/88/d10f7a8429502759e72078d08213fd07eadc023091516b95717a8f506e61/libtpu-0.0.37-cp314-cp314t-manylinux_2_31_x86_64.whl", hash = "sha256:4d61b54e2c9a6be86a86436f55dffd89a47a299b46b20919a201e957b702b2ad", size = 212955761, upload-time = "2026-03-05T01:05:42.074Z" },
 ]
 
 [[package]]
@@ -1014,9 +1032,15 @@ dependencies = [
     { name = "huggingface-hub" },
     { name = "jax" },
     { name = "optax" },
+    { name = "orbax-checkpoint" },
     { name = "pyarrow" },
     { name = "rich" },
     { name = "tokenizers" },
+]
+
+[package.optional-dependencies]
+tpu = [
+    { name = "jax", extra = ["tpu"] },
 ]
 
 [package.metadata]
@@ -1026,11 +1050,14 @@ requires-dist = [
     { name = "grain", specifier = ">=0.2.16" },
     { name = "huggingface-hub", specifier = ">=0.26.0" },
     { name = "jax", specifier = ">=0.9.2" },
+    { name = "jax", extras = ["tpu"], marker = "extra == 'tpu'", specifier = ">=0.9.2" },
     { name = "optax", specifier = ">=0.2.0" },
+    { name = "orbax-checkpoint", specifier = ">=0.11.0" },
     { name = "pyarrow", specifier = ">=23.0.1" },
     { name = "rich", specifier = ">=14.2.0" },
     { name = "tokenizers", specifier = ">=0.22.2" },
 ]
+provides-extras = ["tpu"]
 
 [[package]]
 name = "networkx"

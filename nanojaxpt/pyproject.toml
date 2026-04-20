@@ -15,6 +15,7 @@ dependencies = [
     "huggingface_hub>=0.26.0",
     "jax>=0.9.2",
     "optax>=0.2.0",
+    "orbax-checkpoint>=0.11.0",
     "pyarrow>=23.0.1",
     "rich>=14.2.0",
     "tokenizers>=0.22.2",
@@ -27,6 +28,7 @@ tpu = [
 
 [project.scripts]
 nanojaxpt-download = "nanojaxpt.data.download:main"
+nanojaxpt-token-bytes = "nanojaxpt.data.token_bytes:main"
 
 [tool.uv]
 find-links = ["https://storage.googleapis.com/jax-releases/libtpu_releases.html"]

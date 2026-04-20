@@ -1,6 +1,7 @@
 """
 Functions for evaluating a base model.
 """
+
 from __future__ import annotations
 
 import math
@@ -35,6 +36,7 @@ def _eval_step(
     return batch_nats, batch_bytes
 
 
+# Copied from nanochat
 def evaluate_bpb(
     model: GPT,
     batches: Iterator[dict[str, jax.Array]],

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 
 import jax
@@ -9,6 +10,7 @@ import numpy as np
 import optax
 from flax import nnx
 
+from nanojaxpt.training.checkpoint import save_model
 from nanojaxpt.training.data import DatasetConfig, build_training_dataset
 from nanojaxpt.training.evals import evaluate_bpb
 from nanojaxpt.training.model import GPTConfig, GPT
@@ -23,6 +25,12 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("climbmix_tokens"),
         help="Directory containing tokens-*.arrayrecord files.",
+    )
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=Path,
+        default=Path("checkpoints"),
+        help="Directory to write the final model checkpoint into.",
     )
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--sequence-length", type=int, default=1024)
@@ -44,7 +52,7 @@ def _parse_args() -> argparse.Namespace:
     eval_group.add_argument(
         "--eval-every",
         type=int,
-        default=0,
+        default=100,
         help="Run BPB evaluation every N steps (0 = disabled).",
     )
     eval_group.add_argument(
@@ -173,6 +181,11 @@ def main() -> None:
         if eval_state and step > 0 and step % args.eval_every == 0:
             bpb = _run_eval(model, eval_state)
             print(f"step {step:6d}  bpb  {bpb:.6f}")
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    checkpoint_dir = (args.checkpoint_dir / timestamp).resolve()
+    print(f"Saving final model checkpoint to {checkpoint_dir}")
+    save_model(model, checkpoint_dir)
 
 
 if __name__ == "__main__":
