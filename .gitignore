@@ -8,7 +8,7 @@ NOTES.md
 
 # Training data
 trm/data/*
-nanojaxpt/climbmix_tokens/*
+gchat/climbmix_tokens/*
 
 dist/
 

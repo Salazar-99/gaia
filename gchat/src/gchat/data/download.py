@@ -165,7 +165,7 @@ class DownloadDashboard:
             show_header=False,
         )
         title.add_column(justify="left")
-        title.add_row("[bright_white]nanojaxpt Data Downloader[/bright_white]")
+        title.add_row("[bright_white]gchat Data Downloader[/bright_white]")
 
         summary = Table(
             box=rich.box.ROUNDED,

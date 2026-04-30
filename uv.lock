@@ -18,8 +18,8 @@ members = [
     "gaia-dashboard",
     "gaia-layers",
     "gaia-metrics",
+    "gchat",
     "gpt2",
-    "nanojaxpt",
     "trm",
 ]
 
@@ -362,8 +362,8 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "gaia-core" },
+    { name = "gchat" },
     { name = "gpt2" },
-    { name = "nanojaxpt" },
     { name = "trm" },
 ]
 
@@ -375,8 +375,8 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "gaia-core", editable = "core/all" },
+    { name = "gchat", editable = "gchat" },
     { name = "gpt2", editable = "gpt2" },
-    { name = "nanojaxpt", editable = "nanojaxpt" },
     { name = "trm", editable = "trm" },
 ]
 
@@ -469,6 +469,46 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
 ]
+
+[[package]]
+name = "gchat"
+version = "0.1.0"
+source = { editable = "gchat" }
+dependencies = [
+    { name = "array-record" },
+    { name = "flax" },
+    { name = "gaia-metrics" },
+    { name = "grain" },
+    { name = "huggingface-hub" },
+    { name = "jax" },
+    { name = "optax" },
+    { name = "orbax-checkpoint" },
+    { name = "pyarrow" },
+    { name = "rich" },
+    { name = "tokenizers" },
+]
+
+[package.optional-dependencies]
+tpu = [
+    { name = "jax", extra = ["tpu"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "array-record", specifier = ">=0.8.3" },
+    { name = "flax", specifier = ">=0.12.6" },
+    { name = "gaia-metrics", editable = "core/metrics" },
+    { name = "grain", specifier = ">=0.2.16" },
+    { name = "huggingface-hub", specifier = ">=0.26.0" },
+    { name = "jax", specifier = ">=0.9.2" },
+    { name = "jax", extras = ["tpu"], marker = "extra == 'tpu'", specifier = ">=0.9.2" },
+    { name = "optax", specifier = ">=0.2.0" },
+    { name = "orbax-checkpoint", specifier = ">=0.11.0" },
+    { name = "pyarrow", specifier = ">=23.0.1" },
+    { name = "rich", specifier = ">=14.2.0" },
+    { name = "tokenizers", specifier = ">=0.22.2" },
+]
+provides-extras = ["tpu"]
 
 [[package]]
 name = "googleapis-common-protos"
@@ -1020,44 +1060,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/a2/6e/371856a3fb9d31ca8
 wheels = [
     { url = "https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl", hash = "sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505", size = 4963, upload-time = "2025-04-22T14:54:22.983Z" },
 ]
-
-[[package]]
-name = "nanojaxpt"
-version = "0.1.0"
-source = { editable = "nanojaxpt" }
-dependencies = [
-    { name = "array-record" },
-    { name = "flax" },
-    { name = "grain" },
-    { name = "huggingface-hub" },
-    { name = "jax" },
-    { name = "optax" },
-    { name = "orbax-checkpoint" },
-    { name = "pyarrow" },
-    { name = "rich" },
-    { name = "tokenizers" },
-]
-
-[package.optional-dependencies]
-tpu = [
-    { name = "jax", extra = ["tpu"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "array-record", specifier = ">=0.8.3" },
-    { name = "flax", specifier = ">=0.12.6" },
-    { name = "grain", specifier = ">=0.2.16" },
-    { name = "huggingface-hub", specifier = ">=0.26.0" },
-    { name = "jax", specifier = ">=0.9.2" },
-    { name = "jax", extras = ["tpu"], marker = "extra == 'tpu'", specifier = ">=0.9.2" },
-    { name = "optax", specifier = ">=0.2.0" },
-    { name = "orbax-checkpoint", specifier = ">=0.11.0" },
-    { name = "pyarrow", specifier = ">=23.0.1" },
-    { name = "rich", specifier = ">=14.2.0" },
-    { name = "tokenizers", specifier = ">=0.22.2" },
-]
-provides-extras = ["tpu"]
 
 [[package]]
 name = "networkx"

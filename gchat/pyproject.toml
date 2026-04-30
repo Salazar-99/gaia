@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "nanojaxpt"
+name = "gchat"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -11,6 +11,7 @@ requires-python = ">=3.13"
 dependencies = [
     "array-record>=0.8.3",
     "flax>=0.12.6",
+    "gaia-metrics",
     "grain>=0.2.16",
     "huggingface_hub>=0.26.0",
     "jax>=0.9.2",
@@ -27,12 +28,12 @@ tpu = [
 ]
 
 [project.scripts]
-nanojaxpt-download = "nanojaxpt.data.download:main"
-nanojaxpt-token-bytes = "nanojaxpt.data.token_bytes:main"
+gchat-download = "gchat.data.download:main"
+gchat-token-bytes = "gchat.data.token_bytes:main"
 
 [tool.uv]
 find-links = ["https://storage.googleapis.com/jax-releases/libtpu_releases.html"]
 prerelease = "allow"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/nanojaxpt"]
+packages = ["src/gchat"]

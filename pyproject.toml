@@ -7,7 +7,7 @@ dependencies = [
     "gaia-core",
     "gpt2",
     "trm",
-    "nanojaxpt",
+    "gchat",
 ]
 
 # Shared dependency versions (for reference - uv.lock ensures consistency)
@@ -22,7 +22,7 @@ members = [
     "core/*",
  "gpt2",
  "trm",
- "nanojaxpt",
+ "gchat",
 ]
 
 [tool.uv.sources]
@@ -33,7 +33,7 @@ gaia-dashboard = { workspace = true }
 gaia-checkpoints = { workspace = true }
 gpt2 = { workspace = true }
 trm = { workspace = true }
-nanojaxpt = { workspace = true }
+gchat = { workspace = true }
 
 [dependency-groups]
 dev = [

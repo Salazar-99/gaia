@@ -2,21 +2,32 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import fnmatch
+import shutil
 import struct
+import subprocess
 from typing import Any, Iterator, Mapping
 
 import grain  # type: ignore[import-not-found]
+import jax
 import numpy as np
 
 TOKEN_FILE_GLOB = "tokens-*.arrayrecord"
+GCS_SCHEME = "gs://"
 Batch = dict[str, np.ndarray]
 
 
 @dataclass(frozen=True)
 class DatasetConfig:
-    """Config for reading tokenized ArrayRecord shards with Grain."""
+    """Config for reading tokenized ArrayRecord shards with Grain.
 
-    data_dir: Path | str = Path("climbmix_tokens")
+    `data_dir` accepts either a local path or a `gs://bucket/prefix` URI; in
+    the latter case shards are streamed directly from GCS via ArrayRecord's
+    GCS backend (no local copy). See `gchat/data/upload_dataset.sh` for
+    the bucket layout this expects.
+    """
+
+    data_dir: str = "climbmix_tokens"
     token_file_glob: str = TOKEN_FILE_GLOB
     batch_size: int = 8
     sequence_length: int = 1024
@@ -24,29 +35,67 @@ class DatasetConfig:
     seed: int | None = 0
     repeat: bool = True
     drop_remainder: bool = True
+    # Grain IterDataset read tuning. For streaming from GCS, bumping
+    # `num_threads` is what turns a latency-bound pipeline into a
+    # bandwidth-bound one; 16-64 is a reasonable range per host.
+    num_threads: int = 16
+    prefetch_buffer_size: int = 128
+    # Per-host sharding. None means "use jax.process_{index,count}()" so the
+    # same config works on a single host (no-op) and on a TPU pod.
+    process_index: int | None = None
+    process_count: int | None = None
     reader_options: Mapping[str, str] = field(default_factory=dict)
 
-    def normalized_data_dir(self) -> Path:
-        return Path(self.data_dir).expanduser().resolve()
+    def normalized_data_dir(self) -> str:
+        """Normalize `data_dir` while preserving a `gs://` scheme."""
+        s = str(self.data_dir)
+        if s.startswith(GCS_SCHEME):
+            return s.rstrip("/")
+        return str(Path(s).expanduser().resolve())
+
+
+def _list_local_arrayrecord_files(root: Path, pattern: str) -> list[str]:
+    files = sorted(str(p) for p in root.glob(pattern))
+    if not files:
+        raise FileNotFoundError(f"No files matching {pattern!r} found in {root}.")
+    return files
+
+
+def _list_gcs_arrayrecord_files(uri: str, pattern: str) -> list[str]:
+    if shutil.which("gcloud") is None:
+        raise RuntimeError(
+            "gcloud is required to list gs:// paths. Install the Google "
+            "Cloud SDK (or run on a GCP VM where it is preinstalled)."
+        )
+    listing = subprocess.run(
+        ["gcloud", "storage", "ls", f"{uri.rstrip('/')}/"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    candidates = [ln.strip() for ln in listing.stdout.splitlines()
+                  if ln.strip().startswith(GCS_SCHEME) and not ln.strip().endswith("/")]
+    files = sorted(u for u in candidates if fnmatch.fnmatch(u.rsplit("/", 1)[-1], pattern))
+    if not files:
+        raise FileNotFoundError(f"No files matching {pattern!r} under {uri}.")
+    return files
 
 
 def list_arrayrecord_files(
-    data_dir: Path | str,
+    data_dir: str | Path,
     token_file_glob: str = TOKEN_FILE_GLOB,
-) -> list[Path]:
-    """Returns sorted ArrayRecord token files in a directory."""
-    root = Path(data_dir).expanduser().resolve()
-    files = sorted(root.glob(token_file_glob))
-    if not files:
-        raise FileNotFoundError(
-            f"No files matching {token_file_glob!r} found in {root}."
-        )
-    return files
+) -> list[str]:
+    """Return a sorted list of ArrayRecord shard URIs (local paths or gs://)."""
+    s = str(data_dir)
+    if s.startswith(GCS_SCHEME):
+        return _list_gcs_arrayrecord_files(s, token_file_glob)
+    root = Path(s).expanduser().resolve()
+    return _list_local_arrayrecord_files(root, token_file_glob)
 
 
 def decode_token_record(record: bytes) -> np.ndarray:
     """
-    Decodes one ArrayRecord payload from nanojaxpt.data.download.
+    Decodes one ArrayRecord payload from gchat.data.download.
 
     Record format:
     - uint32 little-endian token count
@@ -67,17 +116,37 @@ def decode_token_record(record: bytes) -> np.ndarray:
     return np.frombuffer(payload, dtype=np.int32, count=num_tokens)
 
 
+def _resolve_process_sharding(config: DatasetConfig) -> tuple[int, int]:
+    """Resolve (process_index, process_count), falling back to JAX defaults."""
+    pc = config.process_count if config.process_count is not None else jax.process_count()
+    pi = config.process_index if config.process_index is not None else jax.process_index()
+    if pc <= 0:
+        raise ValueError(f"process_count must be > 0, got {pc}")
+    if not 0 <= pi < pc:
+        raise ValueError(f"process_index {pi} out of range for process_count {pc}")
+    return pi, pc
+
+
 def build_grain_token_dataset(config: DatasetConfig) -> Any:
     """
     Builds a Grain MapDataset that yields token arrays per ArrayRecord entry.
+
+    Each host sees a disjoint stride of the record index space
+    (`ds[process_index::process_count]`), so N TPU hosts stream N/1 of the
+    data in parallel with no cross-host coordination.
     """
     files = list_arrayrecord_files(config.normalized_data_dir(), config.token_file_glob)
 
     source = grain.sources.ArrayRecordDataSource(
-        paths=[str(path) for path in files],
+        paths=files,
         reader_options=dict(config.reader_options) or None,
     )
     ds = grain.MapDataset.source(source).map(decode_token_record)
+
+    process_index, process_count = _resolve_process_sharding(config)
+    if process_count > 1:
+        ds = ds.slice(slice(process_index, None, process_count))
+
     if config.shuffle:
         ds = ds.shuffle() if config.seed is None else ds.shuffle(seed=config.seed)
     if config.repeat:
@@ -158,6 +227,10 @@ def _validate_training_config(config: DatasetConfig) -> None:
         raise ValueError("batch_size must be > 0")
     if config.sequence_length <= 0:
         raise ValueError("sequence_length must be > 0")
+    if config.num_threads <= 0:
+        raise ValueError("num_threads must be > 0")
+    if config.prefetch_buffer_size <= 0:
+        raise ValueError("prefetch_buffer_size must be > 0")
 
 
 def build_training_dataset(
@@ -173,7 +246,11 @@ def build_training_dataset(
     _validate_training_config(config)
 
     grain_token_dataset = build_grain_token_dataset(config)
-    token_records = iter(grain_token_dataset.to_iter_dataset())
+    read_options = grain.ReadOptions(
+        num_threads=config.num_threads,
+        prefetch_buffer_size=config.prefetch_buffer_size,
+    )
+    token_records = iter(grain_token_dataset.to_iter_dataset(read_options))
     windows = _iter_token_windows(
         token_records=token_records,
         sequence_length=config.sequence_length,
@@ -188,4 +265,5 @@ def build_training_dataset(
 __all__ = [
     "DatasetConfig",
     "build_training_dataset",
+    "list_arrayrecord_files",
 ]

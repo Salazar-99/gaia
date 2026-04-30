@@ -12,7 +12,7 @@ import jax.numpy as jnp
 import optax
 from flax import nnx
 
-from nanojaxpt.training.model import GPT
+from gchat.training.model import GPT
 
 
 @nnx.jit

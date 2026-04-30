@@ -1,4 +1,7 @@
-from typing import Optional, Tuple, TYPE_CHECKING, Any
+import base64
+import os
+from types import SimpleNamespace
+from typing import Optional, Tuple, TYPE_CHECKING, Any, Mapping
 
 if TYPE_CHECKING:
     from gaia_core.config import MetricsConfig
@@ -18,6 +21,11 @@ from opentelemetry.sdk.resources import Resource
 # They are returned from meter methods, so we use Any for runtime type hints
 Meter = Any
 Gauge = Any
+
+OTEL_COLLECTOR_USERNAME_ENV = "OTEL_COLLECTOR_USERNAME"
+OTEL_COLLECTOR_PASSWORD_ENV = "OTEL_COLLECTOR_PASSWORD"
+OTEL_EXPORTER_OTLP_ENDPOINT_ENV = "OTEL_EXPORTER_OTLP_ENDPOINT"
+OTEL_EXPORTER_OTLP_METRICS_ENDPOINT_ENV = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
 
 
 class NoOpGauge:
@@ -57,6 +65,38 @@ def create_gauge(meter: Meter, name: str, description: str, unit: str = "1") -> 
     )
 
 
+def _headers_with_env_auth(headers: Optional[Mapping[str, str]]) -> dict[str, str] | None:
+    """Add OTEL collector Basic Auth from env unless the caller already supplied auth."""
+    merged_headers = dict(headers or {})
+    has_auth_header = any(key.lower() == "authorization" for key in merged_headers)
+
+    if not has_auth_header:
+        username = os.getenv(OTEL_COLLECTOR_USERNAME_ENV)
+        password = os.getenv(OTEL_COLLECTOR_PASSWORD_ENV)
+
+        if username and password:
+            token = base64.b64encode(f"{username}:{password}".encode()).decode()
+            merged_headers["Authorization"] = f"Basic {token}"
+
+    return merged_headers or None
+
+
+def _metrics_config_from_env() -> SimpleNamespace:
+    endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT_ENV)
+    if endpoint is None:
+        otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT_ENV)
+        if otlp_endpoint is not None:
+            endpoint = otlp_endpoint.rstrip("/") + "/v1/metrics"
+
+    return SimpleNamespace(
+        enabled=True,
+        endpoint=endpoint,
+        headers=None,
+        timeout=None,
+        use_console=endpoint is None,
+    )
+
+
 def initialize_metrics(
     run_id: str,
     config: Optional["MetricsConfig"] = None,
@@ -93,8 +133,9 @@ def initialize_metrics(
         if config is not None:
             if config.endpoint is not None:
                 exporter_kwargs["endpoint"] = config.endpoint
-            if config.headers is not None:
-                exporter_kwargs["headers"] = config.headers
+            headers = _headers_with_env_auth(config.headers)
+            if headers is not None:
+                exporter_kwargs["headers"] = headers
             if config.timeout is not None:
                 exporter_kwargs["timeout"] = config.timeout
         exporter = OTLPMetricExporter(**exporter_kwargs)
@@ -117,3 +158,8 @@ def initialize_metrics(
     )
 
     return training_loss, validation_loss, meter
+
+
+def initialize_metrics_from_env(run_id: str) -> Tuple[Gauge, Gauge, Meter]:
+    """Initialize default gauges using OTEL endpoint and auth environment variables."""
+    return initialize_metrics(run_id=run_id, config=_metrics_config_from_env())

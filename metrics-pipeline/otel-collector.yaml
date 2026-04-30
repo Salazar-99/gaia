@@ -1,0 +1,57 @@
+fullnameOverride: gaia-otel-collector
+mode: deployment # Can also be 'daemonset' or 'sidecar'
+image:
+  repository: otel/opentelemetry-collector-contrib
+extraEnvs:
+  - name: CLICKHOUSE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: gaia-metrics-secrets
+        key: clickhouse-password
+  - name: OTEL_COLLECTOR_HTPASSWD
+    valueFrom:
+      secretKeyRef:
+        name: gaia-metrics-secrets
+        key: otel-collector-htpasswd
+ports:
+  otlp:
+    enabled: false
+  otlp-http:
+    enabled: true
+config:
+  extensions:
+    basicauth/otlp:
+      htpasswd:
+        inline: ${env:OTEL_COLLECTOR_HTPASSWD}
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+          auth:
+            authenticator: basicauth/otlp
+  processors:
+    filter/gauges:
+      error_mode: ignore
+      metric_conditions:
+        - metric.type != METRIC_DATA_TYPE_GAUGE
+    batch:
+      send_batch_size: 1000
+      timeout: 10s
+  exporters:
+    clickhouse:
+      endpoint: tcp://clickhouse-gaia-clickhouse.gaia-metrics.svc.cluster.local:9000?dial_timeout=10s
+      username: otel
+      password: ${env:CLICKHOUSE_PASSWORD}
+      database: default
+      create_schema: false
+      metrics_tables:
+        gauge:
+          name: gaia_metrics_landing
+  service:
+    extensions: [health_check, basicauth/otlp]
+    pipelines:
+      metrics:
+        receivers: [otlp]
+        processors: [filter/gauges, batch]
+        exporters: [clickhouse]
