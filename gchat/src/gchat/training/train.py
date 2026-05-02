@@ -68,7 +68,7 @@ def _parse_args() -> argparse.Namespace:
             "run's <timestamp>/ directory is written (default: gchat)."
         ),
     )
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--sequence-length", type=int, default=1024)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=0)
@@ -82,6 +82,16 @@ def _parse_args() -> argparse.Namespace:
         "--no-repeat",
         action="store_true",
         help="Do not repeat the dataset; stop when the input data is exhausted.",
+    )
+    parser.add_argument(
+        "--gcs-token-shard-count",
+        type=int,
+        default=None,
+        help=(
+            "For gs:// data dirs, construct tokens-00000.arrayrecord through "
+            "tokens-<N-1>.arrayrecord instead of listing the GCS prefix with "
+            "gcloud. Local data dirs still use filesystem globbing."
+        ),
     )
 
     eval_group = parser.add_argument_group("evaluation")
@@ -166,7 +176,14 @@ def _build_eval_state(args: argparse.Namespace) -> dict | None:
     if args.token_bytes_path is None:
         raise ValueError("--token-bytes-path is required when --eval-every > 0")
 
-    test_files = list_arrayrecord_files(args.data_dir, TEST_SHARD_GLOB)
+    expected_test_files = None
+    if args.data_dir.startswith("gs://"):
+        expected_test_files = ("test-tokens.arrayrecord",)
+    test_files = list_arrayrecord_files(
+        args.data_dir,
+        TEST_SHARD_GLOB,
+        expected_gcs_file_names=expected_test_files,
+    )
 
     token_bytes_local = _fetch_to_host(args.token_bytes_path, args.host_cache_dir)
     token_bytes = _load_token_bytes(token_bytes_local)
@@ -182,6 +199,7 @@ def _build_eval_state(args: argparse.Namespace) -> dict | None:
         shuffle=False,
         repeat=True,
         seed=None,
+        expected_gcs_file_names=expected_test_files,
     )
     test_file_names = [f.rsplit("/", 1)[-1] for f in test_files]
     print(
@@ -214,13 +232,18 @@ def main() -> None:
         sequence_length=args.sequence_length,
         shuffle=not args.no_shuffle,
         repeat=not args.no_repeat,
+        expected_gcs_token_file_count=args.gcs_token_shard_count,
     )
     batches = build_training_dataset(data_config)
 
     gpt_config = GPTConfig(sequence_len=args.sequence_length)
     rngs = nnx.Rngs(jax.random.key(args.seed))
     model = GPT(gpt_config, rngs)
-    optimizer = nnx.Optimizer(model, optax.adamw(args.learning_rate), wrt=nnx.Param)
+    optimizer = nnx.Optimizer(
+        model,
+        optax.adamw(args.learning_rate, mu_dtype=jnp.float32),
+        wrt=nnx.Param,
+    )
 
     eval_state = _build_eval_state(args)
     training_loss_gauge, validation_loss_gauge, _ = initialize_metrics_from_env(
@@ -239,7 +262,7 @@ def main() -> None:
             logits = m(inputs)
             return optax.softmax_cross_entropy_with_integer_labels(
                 logits, targets
-            ).mean()
+            ).astype(jnp.float32).mean()
 
         loss, grads = nnx.value_and_grad(loss_fn)(model)
         optimizer.update(model, grads)

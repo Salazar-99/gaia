@@ -16,6 +16,8 @@ class GPTConfig:
     n_head: int = 12  # number of query heads
     n_kv_head: int = 12  # number of key/value heads (GQA)
     n_embd: int = 1536
+    dtype: jnp.dtype = jnp.bfloat16
+    param_dtype: jnp.dtype = jnp.bfloat16
     # Sliding window attention pattern string, tiled across layers. Final layer always L.
     # Characters: L=long (full context), S=short (half context)
     # Examples: "L"=all full context, "SL"=alternating, "SSL"=two short then one long
@@ -52,12 +54,16 @@ class MLP(nnx.Module):
             in_features=config.n_embd,
             out_features=4 * config.n_embd,
             use_bias=False,
+            dtype=config.dtype,
+            param_dtype=config.param_dtype,
             rngs=rngs,
         )
         self.w2 = nnx.Linear(
             in_features=4 * config.n_embd,
             out_features=config.n_embd,
             use_bias=False,
+            dtype=config.dtype,
+            param_dtype=config.param_dtype,
             rngs=rngs,
         )
 
@@ -144,18 +150,24 @@ class Attention(nnx.Module):
         self.qk_norm = nnx.RMSNorm(
             self.head_dim,
             use_scale=False,
+            dtype=config.dtype,
+            param_dtype=config.param_dtype,
             rngs=rngs,
         )
         self.qkv = nnx.Linear(
             in_features=config.n_embd,
             out_features=self.attention_output_dim,
             use_bias=False,
+            dtype=config.dtype,
+            param_dtype=config.param_dtype,
             rngs=rngs,
         )
         self.output_projection = nnx.Linear(
             in_features=self.output_dim,
             out_features=config.n_embd,
             use_bias=False,
+            dtype=config.dtype,
+            param_dtype=config.param_dtype,
             rngs=rngs,
         )
 
@@ -203,6 +215,8 @@ class TransformerBlock(nnx.Module):
         self.norm = nnx.RMSNorm(
             config.n_embd,
             use_scale=False,
+            dtype=config.dtype,
+            param_dtype=config.param_dtype,
             rngs=rngs,
         )
         self.attn = Attention(config=config, layer_idx=layer_idx, rngs=rngs)
@@ -218,27 +232,41 @@ class TransformerBlock(nnx.Module):
         return x
 
 
-# Can we run the whole model, minus optimizer state in bf16?
 class GPT(nnx.Module):
     def __init__(self, config: GPTConfig, rngs: nnx.Rngs):
         super().__init__()
         self.config = config
         self.window_sizes = compute_window_sizes(config)
-        self.embedding = nnx.Embed(config.vocab_size, config.n_embd, rngs=rngs)
+        self.embedding = nnx.Embed(
+            config.vocab_size,
+            config.n_embd,
+            dtype=config.dtype,
+            param_dtype=config.param_dtype,
+            rngs=rngs,
+        )
         self.blocks = nnx.List(
             [TransformerBlock(config, i, rngs) for i in range(config.n_layer)]
         )
         self.lm_head = nnx.Linear(
-            config.n_embd, config.vocab_size, use_bias=False, rngs=rngs
+            config.n_embd,
+            config.vocab_size,
+            use_bias=False,
+            dtype=config.dtype,
+            param_dtype=config.param_dtype,
+            rngs=rngs,
         )
         self.prenorm = nnx.RMSNorm(
             config.n_embd,
             use_scale=False,
+            dtype=config.dtype,
+            param_dtype=config.param_dtype,
             rngs=rngs,
         )
         self.postnorm = nnx.RMSNorm(
             config.n_embd,
             use_scale=False,
+            dtype=config.dtype,
+            param_dtype=config.param_dtype,
             rngs=rngs,
         )
 

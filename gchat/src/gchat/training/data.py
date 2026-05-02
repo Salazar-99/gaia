@@ -13,6 +13,7 @@ import jax
 import numpy as np
 
 TOKEN_FILE_GLOB = "tokens-*.arrayrecord"
+TOKEN_FILE_TEMPLATE = "tokens-{index:05d}.arrayrecord"
 GCS_SCHEME = "gs://"
 Batch = dict[str, np.ndarray]
 
@@ -45,6 +46,11 @@ class DatasetConfig:
     process_index: int | None = None
     process_count: int | None = None
     reader_options: Mapping[str, str] = field(default_factory=dict)
+    # For GCS, avoid `gcloud storage ls` by constructing the expected shard
+    # names directly. This is useful on TPU VMs where gcloud credentials may
+    # not be configured even though ArrayRecord can read the objects.
+    expected_gcs_token_file_count: int | None = None
+    expected_gcs_file_names: tuple[str, ...] | None = None
 
     def normalized_data_dir(self) -> str:
         """Normalize `data_dir` while preserving a `gs://` scheme."""
@@ -69,10 +75,16 @@ def _list_gcs_arrayrecord_files(uri: str, pattern: str) -> list[str]:
         )
     listing = subprocess.run(
         ["gcloud", "storage", "ls", f"{uri.rstrip('/')}/"],
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
+    if listing.returncode != 0:
+        detail = (listing.stderr or listing.stdout).strip()
+        message = f"Failed to list {uri} with gcloud storage ls"
+        if detail:
+            message = f"{message}: {detail}"
+        raise RuntimeError(message)
     candidates = [ln.strip() for ln in listing.stdout.splitlines()
                   if ln.strip().startswith(GCS_SCHEME) and not ln.strip().endswith("/")]
     files = sorted(u for u in candidates if fnmatch.fnmatch(u.rsplit("/", 1)[-1], pattern))
@@ -81,13 +93,41 @@ def _list_gcs_arrayrecord_files(uri: str, pattern: str) -> list[str]:
     return files
 
 
+def _join_gcs_file_names(uri: str, file_names: tuple[str, ...]) -> list[str]:
+    if not file_names:
+        raise ValueError("expected_gcs_file_names must not be empty")
+    base = uri.rstrip("/")
+    return [f"{base}/{name}" for name in file_names]
+
+
+def _numbered_gcs_token_files(uri: str, count: int) -> list[str]:
+    if count <= 0:
+        raise ValueError(f"expected_gcs_token_file_count must be > 0, got {count}")
+    base = uri.rstrip("/")
+    return [
+        f"{base}/{TOKEN_FILE_TEMPLATE.format(index=index)}"
+        for index in range(count)
+    ]
+
+
 def list_arrayrecord_files(
     data_dir: str | Path,
     token_file_glob: str = TOKEN_FILE_GLOB,
+    expected_gcs_token_file_count: int | None = None,
+    expected_gcs_file_names: tuple[str, ...] | None = None,
 ) -> list[str]:
     """Return a sorted list of ArrayRecord shard URIs (local paths or gs://)."""
     s = str(data_dir)
     if s.startswith(GCS_SCHEME):
+        if expected_gcs_file_names is not None:
+            return _join_gcs_file_names(s, expected_gcs_file_names)
+        if expected_gcs_token_file_count is not None:
+            if token_file_glob != TOKEN_FILE_GLOB:
+                raise ValueError(
+                    "expected_gcs_token_file_count only supports "
+                    f"{TOKEN_FILE_GLOB!r}; got {token_file_glob!r}"
+                )
+            return _numbered_gcs_token_files(s, expected_gcs_token_file_count)
         return _list_gcs_arrayrecord_files(s, token_file_glob)
     root = Path(s).expanduser().resolve()
     return _list_local_arrayrecord_files(root, token_file_glob)
@@ -135,7 +175,12 @@ def build_grain_token_dataset(config: DatasetConfig) -> Any:
     (`ds[process_index::process_count]`), so N TPU hosts stream N/1 of the
     data in parallel with no cross-host coordination.
     """
-    files = list_arrayrecord_files(config.normalized_data_dir(), config.token_file_glob)
+    files = list_arrayrecord_files(
+        config.normalized_data_dir(),
+        config.token_file_glob,
+        expected_gcs_token_file_count=config.expected_gcs_token_file_count,
+        expected_gcs_file_names=config.expected_gcs_file_names,
+    )
 
     source = grain.sources.ArrayRecordDataSource(
         paths=files,

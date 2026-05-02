@@ -3,6 +3,10 @@
 # Train gchat on a TPU VM using tokenized ArrayRecord shards in GCS.
 #
 # Example:
+#   export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://otel.gerardosalazar.com/v1/metrics
+#   export OTEL_COLLECTOR_USERNAME=otel
+#   export OTEL_COLLECTOR_PASSWORD=<your collector password>
+#   # OTEL_* is optional unless exporting metrics to the authenticated collector.
 #   GCHAT_DATA_DIR=gs://my-bucket/gchat/climbmix_tokens \
 #   GCHAT_CHECKPOINT_BUCKET=my-bucket \
 #   bash gchat/speedrun.sh
@@ -36,24 +40,43 @@ export GCHAT_TOKEN_BYTES_PATH="${GCHAT_TOKEN_BYTES_PATH:-${GCHAT_DATA_DIR%/}/tok
 # Training defaults chosen to mirror nanochat/runs/speedrun.sh as closely as
 # this single-device JAX trainer currently supports.
 GCHAT_SEQUENCE_LENGTH="${GCHAT_SEQUENCE_LENGTH:-2048}"
-GCHAT_BATCH_SIZE="${GCHAT_BATCH_SIZE:-16}"
+GCHAT_BATCH_SIZE="${GCHAT_BATCH_SIZE:-4}"
 GCHAT_LEARNING_RATE="${GCHAT_LEARNING_RATE:-3e-4}"
 GCHAT_SEED="${GCHAT_SEED:-0}"
 GCHAT_LOG_EVERY="${GCHAT_LOG_EVERY:-1}"
 GCHAT_EVAL_EVERY="${GCHAT_EVAL_EVERY:-250}"
-GCHAT_EVAL_BATCH_SIZE="${GCHAT_EVAL_BATCH_SIZE:-16}"
+GCHAT_EVAL_BATCH_SIZE="${GCHAT_EVAL_BATCH_SIZE:-4}"
 GCHAT_EVAL_SPLIT_TOKENS="${GCHAT_EVAL_SPLIT_TOKENS:-41943040}"
+GCHAT_TOKEN_SHARD_COUNT="${GCHAT_TOKEN_SHARD_COUNT:-54}"
 
 # By default, run one pass over the available token shards so the final
 # checkpoint is saved. Set GCHAT_NO_REPEAT=0 to train indefinitely.
 GCHAT_NO_REPEAT="${GCHAT_NO_REPEAT:-1}"
 GCHAT_NO_SHUFFLE="${GCHAT_NO_SHUFFLE:-0}"
 
-command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
+UV_BIN="${UV_BIN:-}"
+if [[ -z "${UV_BIN}" ]]; then
+  if command -v uv >/dev/null; then
+    UV_BIN=$(command -v uv)
+  elif [[ -x "${HOME}/.local/bin/uv" ]]; then
+    UV_BIN="${HOME}/.local/bin/uv"
+  else
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="${HOME}/.local/bin:${PATH}"
+    if command -v uv >/dev/null; then
+      UV_BIN=$(command -v uv)
+    elif [[ -x "${HOME}/.local/bin/uv" ]]; then
+      UV_BIN="${HOME}/.local/bin/uv"
+    else
+      echo "uv installation completed, but uv was not found in PATH or ${HOME}/.local/bin" >&2
+      exit 1
+    fi
+  fi
+fi
 
 # Use the Gaia workspace root so local workspace packages such as gaia-metrics
 # resolve correctly.
-uv sync --package gchat --extra tpu
+"${UV_BIN}" sync --package gchat --extra tpu
 
 TRAIN_ARGS=(
   --data-dir "${GCHAT_DATA_DIR}"
@@ -67,6 +90,7 @@ TRAIN_ARGS=(
   --eval-every "${GCHAT_EVAL_EVERY}"
   --eval-batch-size "${GCHAT_EVAL_BATCH_SIZE}"
   --eval-split-tokens "${GCHAT_EVAL_SPLIT_TOKENS}"
+  --gcs-token-shard-count "${GCHAT_TOKEN_SHARD_COUNT}"
 )
 
 if [[ "${GCHAT_NO_REPEAT}" != "0" ]]; then
@@ -78,6 +102,8 @@ if [[ "${GCHAT_NO_SHUFFLE}" != "0" ]]; then
 fi
 
 if [[ -n "${GCHAT_CHECKPOINT_BUCKET:-}" ]]; then
+  GCHAT_CHECKPOINT_BUCKET="${GCHAT_CHECKPOINT_BUCKET#gs://}"
+  GCHAT_CHECKPOINT_BUCKET="${GCHAT_CHECKPOINT_BUCKET%/}"
   TRAIN_ARGS+=(
     --gcs-checkpoint-bucket "${GCHAT_CHECKPOINT_BUCKET}"
     --gcs-checkpoint-prefix "${GCHAT_CHECKPOINT_PREFIX:-gchat/base_checkpoints/d24}"
@@ -89,6 +115,7 @@ fi
 echo "Starting gchat training"
 echo "  data:        ${GCHAT_DATA_DIR}"
 echo "  token bytes: ${GCHAT_TOKEN_BYTES_PATH}"
+echo "  shards:      ${GCHAT_TOKEN_SHARD_COUNT} training token shards"
 echo "  cache:       ${GCHAT_HOST_CACHE}"
 
-uv run --package gchat python -m gchat.training.train "${TRAIN_ARGS[@]}"
+"${UV_BIN}" run --package gchat python -m gchat.training.train "${TRAIN_ARGS[@]}"

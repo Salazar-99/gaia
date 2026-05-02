@@ -23,7 +23,9 @@ def _eval_step(
     token_bytes: jax.Array,
 ) -> tuple[jax.Array, jax.Array]:
     logits = model(x)
-    loss_flat = optax.softmax_cross_entropy_with_integer_labels(logits, y).reshape(-1)
+    loss_flat = optax.softmax_cross_entropy_with_integer_labels(logits, y).astype(
+        jnp.float32
+    ).reshape(-1)
     y_flat = y.reshape(-1)
 
     valid = y_flat >= 0
