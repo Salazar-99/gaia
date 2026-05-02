@@ -35,7 +35,7 @@ CLIMBMIX_REPO_ID = "karpathy/climbmix-400b-shuffle"
 MAX_SHARD_INDEX = 6542
 NUM_TRAIN_SHARDS = MAX_SHARD_INDEX  # 6542 files: indices 0 .. 6541
 DEFAULT_ARRAYRECORD_FILE_SIZE_MB = 500
-DEFAULT_ARRAYRECORD_GROUP_SIZE = 1
+DEFAULT_ARRAYRECORD_GROUP_SIZE = 1024
 DEFAULT_TOKENIZER_BATCH_SIZE = 128
 DEFAULT_RECORD_QUEUE_BATCH_MB = 1
 DEFAULT_RECORD_QUEUE_MAXSIZE = 32
@@ -91,7 +91,7 @@ def _format_rate(tokens_per_second: float) -> str:
 
 
 def _format_gb(n_bytes: int) -> str:
-    return f"{n_bytes / (1024 ** 3):.2f} GB"
+    return f"{n_bytes / (1024**3):.2f} GB"
 
 
 class WriterStats:
@@ -140,7 +140,9 @@ class DownloadDashboard:
         self.output_dir = output_dir
         self.history: deque[tuple[float, int]] = deque()
 
-    def render(self, token_count: int, parquet_files_read: int, writer_snapshot: dict) -> Group:
+    def render(
+        self, token_count: int, parquet_files_read: int, writer_snapshot: dict
+    ) -> Group:
         now = time.time()
         self.history.append((now, token_count))
         while self.history and now - self.history[0][0] > RATE_WINDOW_SECONDS:
@@ -155,8 +157,12 @@ class DownloadDashboard:
                 tokens_per_second = delta_tokens / delta_t
 
         remaining_tokens = max(0, self.token_target - token_count)
-        eta_seconds = None if tokens_per_second <= 0 else remaining_tokens / tokens_per_second
-        progress_pct = 100.0 * token_count / self.token_target if self.token_target else 0.0
+        eta_seconds = (
+            None if tokens_per_second <= 0 else remaining_tokens / tokens_per_second
+        )
+        progress_pct = (
+            100.0 * token_count / self.token_target if self.token_target else 0.0
+        )
         uptime = now - self.start_time
 
         title = Table(
@@ -178,7 +184,12 @@ class DownloadDashboard:
         summary.add_column(style="bright_white", width=24)
         summary.add_column(style="default", ratio=1)
 
-        summary.add_row("Output directory", str(self.output_dir.resolve()), "Parquet files read", _format_int(parquet_files_read))
+        summary.add_row(
+            "Output directory",
+            str(self.output_dir.resolve()),
+            "Parquet files read",
+            _format_int(parquet_files_read),
+        )
         summary.add_row(
             "Current tokens",
             f"{_format_int(token_count)} / {_format_int(self.token_target)} ({progress_pct:.2f}%)",
@@ -207,7 +218,9 @@ class DownloadDashboard:
         )
         return Group(title, summary)
 
-    def print_dashboard(self, token_count: int, parquet_files_read: int, writer_snapshot: dict) -> None:
+    def print_dashboard(
+        self, token_count: int, parquet_files_read: int, writer_snapshot: dict
+    ) -> None:
         renderable = self.render(
             token_count=token_count,
             parquet_files_read=parquet_files_read,
@@ -543,6 +556,7 @@ def run(
             parquet_files_read=parquet_files_read.value,
             writer_snapshot=writer_stats.snapshot(),
         )
+
     writer.start()
     for p in producers:
         p.start()
@@ -558,11 +572,15 @@ def run(
         refresh_dashboard()
 
         for p in producers:
-            _join_with_dashboard(p, timeout_seconds=120, refresh_dashboard=refresh_dashboard)
+            _join_with_dashboard(
+                p, timeout_seconds=120, refresh_dashboard=refresh_dashboard
+            )
         for _ in range(num_consumers):
             shard_queue.put(None)
         for c in consumers:
-            _join_with_dashboard(c, timeout_seconds=600, refresh_dashboard=refresh_dashboard)
+            _join_with_dashboard(
+                c, timeout_seconds=600, refresh_dashboard=refresh_dashboard
+            )
     finally:
         record_queue.put(None)
         while not done_writing.wait(timeout=DASHBOARD_REFRESH_SECONDS):
@@ -618,7 +636,11 @@ def run_test_shard(
     for rg_idx in range(pf.num_row_groups):
         texts = pf.read_row_group(rg_idx).column("text").to_pylist()
         for start in range(0, len(texts), tokenizer_batch_size):
-            batch = [t for t in texts[start : start + tokenizer_batch_size] if isinstance(t, str) and t]
+            batch = [
+                t
+                for t in texts[start : start + tokenizer_batch_size]
+                if isinstance(t, str) and t
+            ]
             if not batch:
                 continue
             for encoding in tok.encode_batch(batch):
@@ -642,7 +664,7 @@ def _parse_args() -> argparse.Namespace:
         "--tokens",
         type=_parse_tokens_b,
         required=True,
-        help='Target number of GPT-2 tokens to emit (e.g. 9B = 9 billion). Format: <integer>B only.',
+        help="Target number of GPT-2 tokens to emit (e.g. 9B = 9 billion). Format: <integer>B only.",
     )
     p.add_argument(
         "--output",
@@ -715,7 +737,11 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    shard_cache = args.shard_cache if args.shard_cache is not None else args.output / "shard_cache"
+    shard_cache = (
+        args.shard_cache
+        if args.shard_cache is not None
+        else args.output / "shard_cache"
+    )
     run(
         token_target=args.tokens,
         output_dir=args.output,

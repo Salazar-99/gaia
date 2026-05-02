@@ -46,6 +46,19 @@ class NoOpMeter:
         return NoOpGauge()
 
 
+class ForceFlushingGauge:
+    """Gauge wrapper that exports each set value immediately."""
+
+    def __init__(self, gauge: Gauge, provider: MeterProvider):
+        self._gauge = gauge
+        self._provider = provider
+
+    def set(self, value: float, attributes: dict | None = None) -> None:
+        """Set the gauge value and force an immediate metric export."""
+        self._gauge.set(value, attributes)
+        self._provider.force_flush()
+
+
 def create_gauge(meter: Meter, name: str, description: str, unit: str = "1") -> Gauge:
     """Create a gauge metric.
 
@@ -63,6 +76,28 @@ def create_gauge(meter: Meter, name: str, description: str, unit: str = "1") -> 
         description=description,
         unit=unit,
     )
+
+
+def create_force_flushing_gauge(
+    meter: Meter,
+    provider: MeterProvider,
+    name: str,
+    description: str,
+    unit: str = "1",
+) -> ForceFlushingGauge:
+    """Create a gauge whose .set() exports immediately.
+
+    OpenTelemetry gauges keep only the latest value between periodic export
+    intervals. This wrapper preserves the familiar .set() call site while
+    forcing a collection after each value is recorded.
+    """
+    gauge = create_gauge(meter, name=name, description=description, unit=unit)
+    return ForceFlushingGauge(gauge, provider)
+
+
+def force_flush_on_set(gauge: Gauge, provider: MeterProvider) -> ForceFlushingGauge:
+    """Wrap an existing gauge so every .set() call is exported immediately."""
+    return ForceFlushingGauge(gauge, provider)
 
 
 def _headers_with_env_auth(headers: Optional[Mapping[str, str]]) -> dict[str, str] | None:
@@ -145,14 +180,16 @@ def initialize_metrics(
     metrics.set_meter_provider(provider)
     meter = metrics.get_meter("gaia.meter")
 
-    training_loss = create_gauge(
+    training_loss = create_force_flushing_gauge(
         meter,
+        provider,
         name="training_loss",
         description="A gauge metric for training loss",
     )
 
-    validation_loss = create_gauge(
+    validation_loss = create_force_flushing_gauge(
         meter,
+        provider,
         name="validation_loss",
         description="A gauge metric for validation loss",
     )
