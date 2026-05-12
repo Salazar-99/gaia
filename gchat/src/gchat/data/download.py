@@ -420,6 +420,7 @@ def _writer_thread(
     record_queue: mp.Queue,
     output_dir: Path,
     file_size_bytes: int,
+    group_size: int,
     done_event: threading.Event,
     writer_stats: WriterStats,
 ) -> None:
@@ -432,9 +433,7 @@ def _writer_thread(
     def open_writer(index: int):
         path = output_dir / f"tokens-{index:05d}.arrayrecord"
         writer_stats.open_file(path)
-        return ar_module.ArrayRecordWriter(
-            str(path), f"group_size:{DEFAULT_ARRAYRECORD_GROUP_SIZE}"
-        )
+        return ar_module.ArrayRecordWriter(str(path), f"group_size:{group_size}")
 
     try:
         while True:
@@ -486,6 +485,7 @@ def run(
     shard_cache: Path,
     tokenizer_batch_size: int,
     arrayrecord_file_size_mb: int,
+    arrayrecord_group_size: int,
     record_queue_batch_mb: int,
     record_queue_maxsize: int,
 ) -> None:
@@ -519,6 +519,7 @@ def run(
             record_queue,
             output_dir,
             arrayrecord_file_size_bytes,
+            arrayrecord_group_size,
             done_writing,
             writer_stats,
         ),
@@ -558,11 +559,11 @@ def run(
             writer_snapshot=writer_stats.snapshot(),
         )
 
-    writer.start()
     for p in producers:
         p.start()
     for c in consumers:
         c.start()
+    writer.start()
 
     try:
         refresh_dashboard()
@@ -603,6 +604,7 @@ def run_test_shard(
     shard_cache: Path,
     revision: str | None,
     tokenizer_batch_size: int,
+    arrayrecord_group_size: int,
 ) -> None:
     """Download the held-out validation shard, tokenize, and write test-tokens.arrayrecord."""
     import array_record.python.array_record_module as ar_module
@@ -630,7 +632,7 @@ def run_test_shard(
     tok = Tokenizer.from_pretrained("gpt2")
     pf = pq.ParquetFile(path)
     writer = ar_module.ArrayRecordWriter(
-        str(output_path), f"group_size:{DEFAULT_ARRAYRECORD_GROUP_SIZE}"
+        str(output_path), f"group_size:{arrayrecord_group_size}"
     )
 
     total_tokens = 0
@@ -716,6 +718,15 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     p.add_argument(
+        "--arrayrecord-group-size",
+        type=int,
+        default=DEFAULT_ARRAYRECORD_GROUP_SIZE,
+        help=(
+            "ArrayRecord writer group size. Keep this at 1 for Grain multi-file "
+            f"data loading (default: {DEFAULT_ARRAYRECORD_GROUP_SIZE})."
+        ),
+    )
+    p.add_argument(
         "--record-queue-batch-mb",
         type=int,
         default=DEFAULT_RECORD_QUEUE_BATCH_MB,
@@ -752,6 +763,7 @@ def main() -> None:
         shard_cache=shard_cache,
         tokenizer_batch_size=max(1, args.tokenizer_batch_size),
         arrayrecord_file_size_mb=max(1, args.arrayrecord_file_size_mb),
+        arrayrecord_group_size=max(1, args.arrayrecord_group_size),
         record_queue_batch_mb=max(1, args.record_queue_batch_mb),
         record_queue_maxsize=max(1, args.record_queue_maxsize),
     )
@@ -760,6 +772,7 @@ def main() -> None:
         shard_cache=shard_cache,
         revision=args.revision,
         tokenizer_batch_size=max(1, args.tokenizer_batch_size),
+        arrayrecord_group_size=max(1, args.arrayrecord_group_size),
     )
 
 
