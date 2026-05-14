@@ -3,12 +3,6 @@
 # Train gchat on a TPU VM using tokenized ArrayRecord shards in GCS.
 #
 # Example:
-#   export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://otel.gerardosalazar.com/v1/metrics
-#   export OTEL_COLLECTOR_USERNAME=otel
-#   export OTEL_COLLECTOR_PASSWORD=<your collector password>
-#   # OTEL_* is optional unless exporting metrics to the authenticated collector.
-#   GCHAT_DATA_DIR=gs://my-bucket/gchat/climbmix_tokens \
-#   GCHAT_CHECKPOINT_BUCKET=my-bucket \
 #   bash gchat/speedrun.sh
 
 set -euo pipefail
@@ -22,30 +16,22 @@ export GCHAT_BASE_DIR="${GCHAT_BASE_DIR:-${HOME}/.cache/gchat}"
 export GCHAT_HOST_CACHE="${GCHAT_HOST_CACHE:-${GCHAT_BASE_DIR}/host_cache}"
 mkdir -p "${GCHAT_BASE_DIR}" "${GCHAT_HOST_CACHE}"
 
-if [[ -z "${GCHAT_DATA_DIR:-}" ]]; then
-  cat >&2 <<'EOF'
-Set GCHAT_DATA_DIR to the GCS prefix containing:
-  tokens-*.arrayrecord
-  test-tokens*.arrayrecord
-  token_bytes.npy
-
-Example:
-  GCHAT_DATA_DIR=gs://my-bucket/gchat/climbmix_tokens bash gchat/speedrun.sh
-EOF
-  exit 2
-fi
-
+# Edit this block to point the run at a different dataset or metrics collector.
+export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-https://otel.gerardosalazar.com/v1/metrics}"
+export OTEL_COLLECTOR_USERNAME="${OTEL_COLLECTOR_USERNAME:-otel}"
+export OTEL_COLLECTOR_PASSWORD="${OTEL_COLLECTOR_PASSWORD:-<your collector password>}"
+export GCHAT_DATA_DIR="${GCHAT_DATA_DIR:-gs://gchat-climbmix-7b/data}"
 export GCHAT_TOKEN_BYTES_PATH="${GCHAT_TOKEN_BYTES_PATH:-${GCHAT_DATA_DIR%/}/token_bytes.npy}"
 
 # Training defaults chosen to mirror nanochat/runs/speedrun.sh as closely as
 # this single-device JAX trainer currently supports.
 GCHAT_SEQUENCE_LENGTH="${GCHAT_SEQUENCE_LENGTH:-2048}"
-GCHAT_BATCH_SIZE="${GCHAT_BATCH_SIZE:-4}"
+GCHAT_BATCH_SIZE="${GCHAT_BATCH_SIZE:-16}"
 GCHAT_LEARNING_RATE="${GCHAT_LEARNING_RATE:-3e-4}"
 GCHAT_SEED="${GCHAT_SEED:-0}"
 GCHAT_LOG_EVERY="${GCHAT_LOG_EVERY:-1}"
 GCHAT_EVAL_EVERY="${GCHAT_EVAL_EVERY:-250}"
-GCHAT_EVAL_BATCH_SIZE="${GCHAT_EVAL_BATCH_SIZE:-4}"
+GCHAT_EVAL_BATCH_SIZE="${GCHAT_EVAL_BATCH_SIZE:-16}"
 GCHAT_EVAL_SPLIT_TOKENS="${GCHAT_EVAL_SPLIT_TOKENS:-41943040}"
 GCHAT_TOKEN_SHARD_COUNT="${GCHAT_TOKEN_SHARD_COUNT:-54}"
 
@@ -101,12 +87,18 @@ if [[ "${GCHAT_NO_SHUFFLE}" != "0" ]]; then
   TRAIN_ARGS+=(--no-shuffle)
 fi
 
-if [[ -n "${GCHAT_CHECKPOINT_BUCKET:-}" ]]; then
-  GCHAT_CHECKPOINT_BUCKET="${GCHAT_CHECKPOINT_BUCKET#gs://}"
-  GCHAT_CHECKPOINT_BUCKET="${GCHAT_CHECKPOINT_BUCKET%/}"
+GCHAT_DATA_URI="${GCHAT_DATA_DIR%/}"
+if [[ "${GCHAT_DATA_URI}" == gs://* ]]; then
+  GCHAT_DATA_PATH="${GCHAT_DATA_URI#gs://}"
+  GCHAT_CHECKPOINT_BUCKET="${GCHAT_DATA_PATH%%/*}"
+  if [[ "${GCHAT_DATA_PATH}" == */* ]]; then
+    GCHAT_CHECKPOINT_PREFIX="${GCHAT_DATA_PATH#*/}/checkpoint"
+  else
+    GCHAT_CHECKPOINT_PREFIX="checkpoint"
+  fi
   TRAIN_ARGS+=(
     --gcs-checkpoint-bucket "${GCHAT_CHECKPOINT_BUCKET}"
-    --gcs-checkpoint-prefix "${GCHAT_CHECKPOINT_PREFIX:-gchat/base_checkpoints/d24}"
+    --gcs-checkpoint-prefix "${GCHAT_CHECKPOINT_PREFIX}"
   )
 else
   TRAIN_ARGS+=(--checkpoint-dir "${GCHAT_CHECKPOINT_DIR:-${GCHAT_BASE_DIR}/checkpoints}")
@@ -117,5 +109,8 @@ echo "  data:        ${GCHAT_DATA_DIR}"
 echo "  token bytes: ${GCHAT_TOKEN_BYTES_PATH}"
 echo "  shards:      ${GCHAT_TOKEN_SHARD_COUNT} training token shards"
 echo "  cache:       ${GCHAT_HOST_CACHE}"
+if [[ "${GCHAT_DATA_URI}" == gs://* ]]; then
+  echo "  checkpoint:  gs://${GCHAT_CHECKPOINT_BUCKET}/${GCHAT_CHECKPOINT_PREFIX}"
+fi
 
 "${UV_BIN}" run --package gchat python -m gchat.training.train "${TRAIN_ARGS[@]}"

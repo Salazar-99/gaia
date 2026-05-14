@@ -25,7 +25,7 @@ export GCHAT_ARRAYRECORD_GROUP_SIZE="${GCHAT_ARRAYRECORD_GROUP_SIZE:-1}"
 # gs://gchat/data/.
 export GCHAT_BUCKET="${GCHAT_BUCKET:-gchat}"
 export GCHAT_DEST_PREFIX="${GCHAT_DEST_PREFIX:-data}"
-export GCHAT_LOCATION="${GCHAT_LOCATION:-us-central2}"
+export GCHAT_LOCATION="${GCHAT_LOCATION:-us-central1}"
 export GCHAT_STORAGE_CLASS="${GCHAT_STORAGE_CLASS:-STANDARD}"
 
 if [[ -z "${UV_BIN:-}" ]]; then
@@ -46,19 +46,19 @@ echo "  ArrayRecord group size: ${GCHAT_ARRAYRECORD_GROUP_SIZE}"
 echo "  token bytes:            ${GCHAT_TOKEN_BYTES}"
 echo "  upload:                 gs://${GCHAT_BUCKET}/${GCHAT_DEST_PREFIX%/}/"
 
-"${UV_BIN}" sync --package gchat
+# "${UV_BIN}" sync --package gchat
 
-"${UV_BIN}" run --package gchat python -m gchat.data.download \
-  --tokens "${GCHAT_TOKENS}" \
-  --output "${GCHAT_SOURCE}" \
-  --num-producers "${GCHAT_NUM_PRODUCERS}" \
-  --num-consumers "${GCHAT_NUM_CONSUMERS}" \
-  --shard-cache "${GCHAT_SHARD_CACHE}" \
-  --arrayrecord-group-size "${GCHAT_ARRAYRECORD_GROUP_SIZE}"
+# "${UV_BIN}" run --package gchat python -m gchat.data.download \
+#   --tokens "${GCHAT_TOKENS}" \
+#   --output "${GCHAT_SOURCE}" \
+#   --num-producers "${GCHAT_NUM_PRODUCERS}" \
+#   --num-consumers "${GCHAT_NUM_CONSUMERS}" \
+#   --shard-cache "${GCHAT_SHARD_CACHE}" \
+#   --arrayrecord-group-size "${GCHAT_ARRAYRECORD_GROUP_SIZE}"
 
-"${UV_BIN}" run --package gchat python -m gchat.data.token_bytes \
-  --tokenizer "${GCHAT_TOKENIZER}" \
-  --output "${GCHAT_TOKEN_BYTES}"
+# "${UV_BIN}" run --package gchat python -m gchat.data.token_bytes \
+#   --tokenizer "${GCHAT_TOKENIZER}" \
+#   --output "${GCHAT_TOKEN_BYTES}"
 
 "${SCRIPT_DIR}/upload_dataset.sh" \
   --bucket "${GCHAT_BUCKET}" \

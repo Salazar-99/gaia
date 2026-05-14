@@ -7,20 +7,36 @@ My implementation of [nanochat](https://github.com/karpathy/nanochat) in JAX tra
 Train on a TPU VM using tokenized ArrayRecord shards in GCS:
 
 ```bash
-export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://otel.gerardosalazar.com/v1/metrics
-export OTEL_COLLECTOR_USERNAME=otel
-export OTEL_COLLECTOR_PASSWORD="<your collector password>"
-
-GCHAT_DATA_DIR=gs://my-bucket/gchat/climbmix_tokens \
-GCHAT_CHECKPOINT_BUCKET=my-bucket \
 bash gchat/speedrun.sh
 ```
 
-`speedrun.sh` avoids listing the GCS data prefix during startup. It expects
-`tokens-00000.arrayrecord` through `tokens-00053.arrayrecord` by default; set
-`GCHAT_TOKEN_SHARD_COUNT` if you upload more training shards.
+The data directory must contain `token_bytes.npy` and the token shards
+`tokens-00000.arrayrecord` through `tokens-00053.arrayrecord`. Checkpoints are
+written under the same GCS path at `checkpoint/<timestamp>/`. Edit
+`gchat/speedrun.sh` directly to change the dataset or metrics collector.
 
-The `OTEL_*` variables are optional unless exporting metrics to the authenticated collector.
+### Speedrun configuration
+
+Edit the defaults in `gchat/speedrun.sh` before starting a run:
+
+| Setting | Default | What it controls | How to change it |
+| --- | --- | --- | --- |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | `https://otel.gerardosalazar.com/v1/metrics` | Metrics collector endpoint. | Replace the URL in the editable config block. |
+| `OTEL_COLLECTOR_USERNAME` | `otel` | Metrics collector username. | Replace the default username in the editable config block. |
+| `OTEL_COLLECTOR_PASSWORD` | `<your collector password>` | Metrics collector password. | Replace the placeholder password in the editable config block. |
+| `GCHAT_DATA_DIR` | `gs://gchat-climbmix-7b/data` | GCS directory containing `token_bytes.npy` and token shards. | Replace the default `gs://.../data` path. |
+| `GCHAT_TOKEN_BYTES_PATH` | `${GCHAT_DATA_DIR%/}/token_bytes.npy` | Vocabulary byte metadata file. | Leave derived from `GCHAT_DATA_DIR` unless the file lives elsewhere. |
+| `GCHAT_SEQUENCE_LENGTH` | `2048` | Tokens per training sequence. | Edit the numeric default in the training defaults block. |
+| `GCHAT_BATCH_SIZE` | `16` | Per-step batch size. | Edit the numeric default in the training defaults block. |
+| `GCHAT_LEARNING_RATE` | `3e-4` | AdamW learning rate. | Edit the default learning-rate value. |
+| `GCHAT_SEED` | `0` | Random seed for training. | Edit the integer seed value. |
+| `GCHAT_LOG_EVERY` | `1` | Training log frequency in steps. | Edit the step interval. |
+| `GCHAT_EVAL_EVERY` | `250` | Eval frequency in steps. | Edit the step interval. |
+| `GCHAT_EVAL_BATCH_SIZE` | `16` | Eval batch size. | Edit the numeric default. |
+| `GCHAT_EVAL_SPLIT_TOKENS` | `41943040` | Number of tokens reserved for eval. | Edit the token count. |
+| `GCHAT_TOKEN_SHARD_COUNT` | `54` | Number of training shards to read. | Match this to the uploaded `tokens-*.arrayrecord` shard count. |
+| `GCHAT_NO_REPEAT` | `1` | Whether training stops after one pass over the shards. | Keep `1` for one pass; set to `0` to repeat indefinitely. |
+| `GCHAT_NO_SHUFFLE` | `0` | Whether training disables dataset shuffle. | Keep `0` to shuffle; set to `1` to disable shuffle. |
 
 ## Scaling dashboard
 
