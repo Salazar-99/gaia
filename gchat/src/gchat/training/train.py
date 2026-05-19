@@ -23,7 +23,7 @@ from gchat.training.model import GPTConfig, GPT
 from gaia_metrics import initialize_metrics_from_env
 
 
-METRICS_RUN_ID = "gchat-test"
+METRICS_RUN_ID_ENV = "GCHAT_METRICS_RUN_ID"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -105,7 +105,12 @@ def _parse_args() -> argparse.Namespace:
         "--eval-every",
         type=int,
         default=100,
-        help="Run BPB evaluation every N steps (0 = disabled).",
+        help="Run BPB evaluation every N steps (0 = disabled unless --eval-at-end).",
+    )
+    eval_group.add_argument(
+        "--eval-at-end",
+        action="store_true",
+        help="Run BPB evaluation once after training finishes (no periodic eval).",
     )
     eval_group.add_argument(
         "--eval-batch-size",
@@ -176,11 +181,14 @@ TEST_SHARD_GLOB = "test-tokens*.arrayrecord"
 
 
 def _build_eval_state(args: argparse.Namespace) -> dict | None:
-    """Prepare everything needed for periodic BPB evaluation, or return None."""
-    if args.eval_every <= 0:
+    """Prepare everything needed for BPB evaluation, or return None."""
+    if args.eval_every <= 0 and not args.eval_at_end:
         return None
     if args.token_bytes_path is None:
-        raise ValueError("--token-bytes-path is required when --eval-every > 0")
+        raise ValueError(
+            "--token-bytes-path is required when evaluation is enabled "
+            "(--eval-every > 0 or --eval-at-end)."
+        )
 
     expected_test_files = None
     if args.data_dir.startswith("gs://"):
@@ -208,8 +216,14 @@ def _build_eval_state(args: argparse.Namespace) -> dict | None:
         expected_gcs_file_names=expected_test_files,
     )
     test_file_names = [f.rsplit("/", 1)[-1] for f in test_files]
+    if args.eval_at_end and args.eval_every <= 0:
+        schedule = "once at end of training"
+    elif args.eval_at_end:
+        schedule = f"every {args.eval_every} steps and at end of training"
+    else:
+        schedule = f"every {args.eval_every} steps"
     print(
-        f"BPB eval: every {args.eval_every} steps, "
+        f"BPB eval: {schedule}, "
         f"{eval_steps} steps/run ({split_tokens:,} tokens), "
         f"batch_size={args.eval_batch_size}, "
         f"test files: {test_file_names}"
@@ -255,10 +269,11 @@ def main() -> None:
     )
 
     eval_state = _build_eval_state(args)
+    metrics_run_id = os.environ.get(METRICS_RUN_ID_ENV, "gchat-test")
     training_loss_gauge, validation_loss_gauge, _ = initialize_metrics_from_env(
-        run_id=METRICS_RUN_ID
+        run_id=metrics_run_id
     )
-    print(f"Metrics initialized with run_id={METRICS_RUN_ID}")
+    print(f"Metrics initialized with run_id={metrics_run_id}")
 
     @nnx.jit
     def train_step(
@@ -288,10 +303,21 @@ def main() -> None:
             print(f"step {step:6d}  loss {loss_val:.4f}")
             training_loss_gauge.set(loss_val)
 
-        if eval_state and step > 0 and step % args.eval_every == 0:
+        if (
+            eval_state
+            and args.eval_every > 0
+            and step > 0
+            and step % args.eval_every == 0
+        ):
             bpb = _run_eval(model, eval_state)
             print(f"step {step:6d}  bpb  {bpb:.6f}")
             validation_loss_gauge.set(bpb)
+
+    if eval_state and args.eval_at_end:
+        final_step = step
+        bpb = _run_eval(model, eval_state)
+        print(f"step {final_step:6d}  bpb  {bpb:.6f}")
+        validation_loss_gauge.set(bpb)
 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     if args.gcs_checkpoint_bucket:
