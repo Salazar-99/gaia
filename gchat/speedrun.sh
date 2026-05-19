@@ -26,6 +26,7 @@ export GCHAT_TOKEN_BYTES_PATH="${GCHAT_TOKEN_BYTES_PATH:-${GCHAT_DATA_DIR%/}/tok
 # Training defaults chosen to mirror nanochat/runs/speedrun.sh as closely as
 # this single-device JAX trainer currently supports.
 GCHAT_SEQUENCE_LENGTH="${GCHAT_SEQUENCE_LENGTH:-2048}"
+GCHAT_N_LAYER="${GCHAT_N_LAYER:-24}"
 GCHAT_BATCH_SIZE="${GCHAT_BATCH_SIZE:-16}"
 GCHAT_LEARNING_RATE="${GCHAT_LEARNING_RATE:-3e-4}"
 GCHAT_SEED="${GCHAT_SEED:-0}"
@@ -69,6 +70,7 @@ TRAIN_ARGS=(
   --token-bytes-path "${GCHAT_TOKEN_BYTES_PATH}"
   --host-cache-dir "${GCHAT_HOST_CACHE}"
   --sequence-length "${GCHAT_SEQUENCE_LENGTH}"
+  --n-layer "${GCHAT_N_LAYER}"
   --batch-size "${GCHAT_BATCH_SIZE}"
   --learning-rate "${GCHAT_LEARNING_RATE}"
   --seed "${GCHAT_SEED}"
@@ -107,6 +109,7 @@ fi
 echo "Starting gchat training"
 echo "  data:        ${GCHAT_DATA_DIR}"
 echo "  token bytes: ${GCHAT_TOKEN_BYTES_PATH}"
+echo "  layers:      ${GCHAT_N_LAYER} transformer blocks"
 echo "  shards:      ${GCHAT_TOKEN_SHARD_COUNT} training token shards"
 echo "  cache:       ${GCHAT_HOST_CACHE}"
 if [[ "${GCHAT_DATA_URI}" == gs://* ]]; then

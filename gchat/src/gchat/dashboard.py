@@ -52,9 +52,9 @@ class Tpu:
 
 
 SLIDERS: tuple[Slider, ...] = (
-    Slider("batch_size", "Batch size", 4, 1, 64, 1, "Training examples per step."),
+    Slider("batch_size", "Batch size", 16, 1, 64, 1, "Training examples per step."),
     Slider(
-        "sequence_len", "Sequence length", 1024, 256, 32768, 256, "Tokens per example."
+        "sequence_len", "Sequence length", 2048, 256, 32768, 256, "Tokens per example."
     ),
     Slider(
         "vocab_size",
@@ -76,7 +76,7 @@ SLIDERS: tuple[Slider, ...] = (
     Slider(
         "training_tokens",
         "Training tokens",
-        10,
+        7,
         1,
         32,
         1,
@@ -645,8 +645,8 @@ def _script() -> Script:
         }
 
         function updateEstimate() {
-            const batchSize = readInt("batch_size", 4);
-            const sequenceLen = readInt("sequence_len", 1024);
+            const batchSize = readInt("batch_size", 16);
+            const sequenceLen = readInt("sequence_len", 2048);
             const vocabSize = readInt("vocab_size", 50257);
             const nLayer = readInt("n_layer", 24);
             const nHead = readInt("n_head", 12);
@@ -654,7 +654,7 @@ def _script() -> Script:
             const nEmbd = readInt("n_embd", 1536);
             const paramBytes = readInt("param_bytes", 2);
             const activationBytes = readInt("activation_bytes", 2);
-            const trainingTokens = readInt("training_tokens", 10) * 1000000000;
+            const trainingTokens = readInt("training_tokens", 7) * 1000000000;
             const chipsPerReplica = readInt("data_parallelism", 1);
 
             const warnings = [];

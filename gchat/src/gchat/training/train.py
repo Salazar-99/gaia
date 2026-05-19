@@ -70,6 +70,12 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--sequence-length", type=int, default=1024)
+    parser.add_argument(
+        "--n-layer",
+        type=int,
+        default=24,
+        help="Number of transformer blocks.",
+    )
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--log-every", type=int, default=1)
@@ -236,7 +242,10 @@ def main() -> None:
     )
     batches = build_training_dataset(data_config)
 
-    gpt_config = GPTConfig(sequence_len=args.sequence_length)
+    gpt_config = GPTConfig(
+        sequence_len=args.sequence_length,
+        n_layer=args.n_layer,
+    )
     rngs = nnx.Rngs(jax.random.key(args.seed))
     model = GPT(gpt_config, rngs)
     optimizer = nnx.Optimizer(
