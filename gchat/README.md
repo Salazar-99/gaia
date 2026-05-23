@@ -40,11 +40,30 @@ Edit the defaults in `gchat/speedrun.sh` before starting a run:
 
 ## Scaling dashboard
 
-Install the optional dashboard dependencies and launch the FastHTML memory
-estimator:
+The scaling dashboard lives at `src/gchat/scaling/dashboard.py`. Install the
+optional dashboard dependencies and launch the FastHTML memory estimator:
 
 ```bash
+cd gchat
 uv run --extra dashboard gchat-scaling-dashboard
+```
+
+Or run the module directly:
+
+```bash
+cd gchat
+uv run --extra dashboard python -m gchat.scaling.dashboard
+```
+
+Then open `http://127.0.0.1:5001`.
+
+To run it in Docker, build from the `gchat` directory. If deploying to an
+amd64 cluster from Apple Silicon, build for that platform:
+
+```bash
+cd gchat
+docker build --platform linux/amd64 -f src/gchat/scaling/Dockerfile -t gimages.azurecr.io/gchat-scaling-dashboard:1.0 .
+docker run --rm -p 5001:5001 gimages.azurecr.io/gchat-scaling-dashboard:1.0
 ```
 
 Then open `http://127.0.0.1:5001`.

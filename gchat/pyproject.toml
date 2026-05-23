@@ -32,7 +32,7 @@ dashboard = [
 
 [project.scripts]
 gchat-download = "gchat.data.download:main"
-gchat-scaling-dashboard = "gchat.dashboard:main"
+gchat-scaling-dashboard = "gchat.scaling.dashboard:main"
 gchat-token-bytes = "gchat.data.token_bytes:main"
 
 [tool.uv]

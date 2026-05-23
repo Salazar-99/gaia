@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from typing import Iterable
+from urllib.parse import quote
 
 from fasthtml.common import (
     Div,
@@ -12,6 +13,7 @@ from fasthtml.common import (
     Input,
     Label,
     Li,
+    Link,
     Main,
     Meta,
     P,
@@ -232,6 +234,15 @@ def _estimate_memory(values: dict[str, int]) -> dict[str, float | list[str]]:
         "attention_workspace_bytes": attention_workspace_bytes,
         "total_bytes": total_bytes,
     }
+
+
+def _favicon() -> Link:
+    svg = (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>"
+        "<text y='.9em' font-size='90'>🧠</text>"
+        "</svg>"
+    )
+    return Link(rel="icon", href=f"data:image/svg+xml,{quote(svg)}")
 
 
 def _style() -> Style:
@@ -984,6 +995,7 @@ app, rt = fast_app(
     secret_key="gchat-scaling-dashboard",
     hdrs=(
         Meta(name="viewport", content="width=device-width, initial-scale=1"),
+        _favicon(),
         _style(),
         _script(),
     ),
@@ -1023,4 +1035,13 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    serve(host=args.host, port=args.port, reload=args.reload)
+    serve(
+        appname="gchat.scaling.dashboard",
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+    )
+
+
+if __name__ == "__main__":
+    main()
