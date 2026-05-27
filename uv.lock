@@ -579,6 +579,7 @@ dependencies = [
     { name = "optax" },
     { name = "orbax-checkpoint" },
     { name = "pyarrow" },
+    { name = "pyyaml" },
     { name = "rich" },
     { name = "tokenizers" },
 ]
@@ -604,6 +605,7 @@ requires-dist = [
     { name = "orbax-checkpoint", specifier = ">=0.11.0" },
     { name = "pyarrow", specifier = ">=23.0.1" },
     { name = "python-fasthtml", marker = "extra == 'dashboard'", specifier = ">=0.13.4" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "rich", specifier = ">=14.2.0" },
     { name = "tokenizers", specifier = ">=0.22.2" },
 ]

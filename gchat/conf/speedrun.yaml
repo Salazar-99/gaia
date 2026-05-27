@@ -1,0 +1,49 @@
+# Default speedrun configuration for gchat training on a TPU VM.
+# Override by copying this file or passing a different path to speedrun.sh.
+
+runtime:
+  omp_num_threads: 1
+  base_dir: ~/.cache/gchat
+
+metrics:
+  enabled: true
+  run_id: gchat-test
+  endpoint: https://otel.gerardosalazar.com/v1/metrics
+  username: otel
+  password: <your collector password>
+
+data:
+  data_dir: gs://gchat-climbmix-7b/data
+  batch_size: 16
+  sequence_length: 1024
+  shuffle: true
+  gcs_token_shard_count: 54
+
+model:
+  n_layer: 12
+  n_head: 8
+  n_kv_head: 8
+  n_embd: 1536
+  window_pattern: SSSL
+
+training:
+  learning_rate: 3.0e-4
+  seed: 0
+  log_every: 1
+
+eval:
+  every: 250
+  batch_size: 16
+  # 80 local eval steps at batch_size=16 and sequence_length=1024; nanochat
+  # evaluates far more tokens by spreading the same step count over 8 GPUs.
+  split_tokens: 1310720
+
+profiling:
+  enabled: false
+  log_dir: null
+  warmup_steps: 5
+  steps: 3
+
+# profiling.log_dir defaults to <runtime.base_dir>/profiles.
+# Set profiling.enabled: true to run only the short TensorBoard profile loop.
+# Checkpoint destination is derived from data.data_dir for gs:// paths.

@@ -4,39 +4,60 @@ My implementation of [nanochat](https://github.com/karpathy/nanochat) in JAX tra
 
 ## Speedrun
 
-Train on a TPU VM using tokenized ArrayRecord shards in GCS:
+Train on a TPU VM using the default YAML config:
 
 ```bash
 bash gchat/speedrun.sh
 ```
 
-The data directory must contain `token_bytes.npy` and the token shards
-`tokens-00000.arrayrecord` through `tokens-00053.arrayrecord`. Checkpoints are
-written under the same GCS path at `checkpoint/<timestamp>/`. Edit
-`gchat/speedrun.sh` directly to change the dataset or metrics collector.
+To use another config:
 
-### Speedrun configuration
+```bash
+bash gchat/speedrun.sh gchat/conf/my_run.yaml
+```
 
-Edit the defaults in `gchat/speedrun.sh` before starting a run:
+`gchat/conf/speedrun.yaml` is the source of truth for training settings. The
+default data directory must contain `token_bytes.npy` and
+`tokens-00000.arrayrecord` through `tokens-00053.arrayrecord`. For `gs://` data,
+checkpoints default to the same bucket and prefix under `checkpoint/<timestamp>/`.
 
-| Setting | Default | What it controls | How to change it |
-| --- | --- | --- | --- |
-| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | `https://otel.gerardosalazar.com/v1/metrics` | Metrics collector endpoint. | Replace the URL in the editable config block. |
-| `OTEL_COLLECTOR_USERNAME` | `otel` | Metrics collector username. | Replace the default username in the editable config block. |
-| `OTEL_COLLECTOR_PASSWORD` | `<your collector password>` | Metrics collector password. | Replace the placeholder password in the editable config block. |
-| `GCHAT_DATA_DIR` | `gs://gchat-climbmix-7b/data` | GCS directory containing `token_bytes.npy` and token shards. | Replace the default `gs://.../data` path. |
-| `GCHAT_TOKEN_BYTES_PATH` | `${GCHAT_DATA_DIR%/}/token_bytes.npy` | Vocabulary byte metadata file. | Leave derived from `GCHAT_DATA_DIR` unless the file lives elsewhere. |
-| `GCHAT_SEQUENCE_LENGTH` | `2048` | Tokens per training sequence. | Edit the numeric default in the training defaults block. |
-| `GCHAT_BATCH_SIZE` | `16` | Per-step batch size. | Edit the numeric default in the training defaults block. |
-| `GCHAT_LEARNING_RATE` | `3e-4` | AdamW learning rate. | Edit the default learning-rate value. |
-| `GCHAT_SEED` | `0` | Random seed for training. | Edit the integer seed value. |
-| `GCHAT_LOG_EVERY` | `1` | Training log frequency in steps. | Edit the step interval. |
-| `GCHAT_EVAL_EVERY` | `250` | Eval frequency in steps. | Edit the step interval. |
-| `GCHAT_EVAL_BATCH_SIZE` | `16` | Eval batch size. | Edit the numeric default. |
-| `GCHAT_EVAL_SPLIT_TOKENS` | `41943040` | Number of tokens reserved for eval. | Edit the token count. |
-| `GCHAT_TOKEN_SHARD_COUNT` | `54` | Number of training shards to read. | Match this to the uploaded `tokens-*.arrayrecord` shard count. |
-| `GCHAT_NO_REPEAT` | `1` | Whether training stops after one pass over the shards. | Keep `1` for one pass; set to `0` to repeat indefinitely. |
-| `GCHAT_NO_SHUFFLE` | `0` | Whether training disables dataset shuffle. | Keep `0` to shuffle; set to `1` to disable shuffle. |
+### Speedrun Configuration
+
+| YAML key | Default | Meaning |
+| --- | --- | --- |
+| `runtime.omp_num_threads` | `1` | Sets `OMP_NUM_THREADS` before JAX starts. |
+| `runtime.base_dir` | `~/.cache/gchat` | Local base directory for profile logs. |
+| `metrics.enabled` | `true` | Enables OTLP metric export through `gaia-metrics`. |
+| `metrics.run_id` | `gchat-test` | Run label attached to metrics. |
+| `metrics.endpoint` | `https://otel.gerardosalazar.com/v1/metrics` | OTLP metrics endpoint; set to `null` for console metrics. |
+| `metrics.username` / `metrics.password` | `otel` / placeholder | Basic-auth credentials for the metrics endpoint. |
+| `data.data_dir` | `gs://gchat-climbmix-7b/data` | Directory containing ArrayRecord token shards and `token_bytes.npy`. |
+| `data.batch_size` | `16` | Training batch size. |
+| `data.sequence_length` | `1024` | Tokens per training sequence. |
+| `data.shuffle` | `true` | Shuffles the Grain dataset. |
+| `data.gcs_token_shard_count` | `54` | Number of expected `tokens-*.arrayrecord` shards for GCS data. |
+| `model.n_layer` | `12` | Number of transformer blocks. |
+| `model.n_head` / `model.n_kv_head` | `8` / `8` | Query and key/value attention head counts. |
+| `model.n_embd` | `1536` | Transformer hidden width. |
+| `model.window_pattern` | `SSSL` | Sliding attention pattern; `S` is half-context, `L` is full-context. |
+| `training.learning_rate` | `3.0e-4` | AdamW learning rate. |
+| `training.seed` | `0` | Model initialization seed. |
+| `training.log_every` | `1` | Training loss log interval in steps, written through the delayed `RecordWriter`. |
+| `eval.every` | `250` | Runs BPB eval periodically after step 0. |
+| `eval.batch_size` | `16` | Eval batch size. |
+| `eval.split_tokens` | `1310720` | Number of test tokens consumed per BPB eval run. |
+| `profiling.enabled` | `false` | Runs only the short JAX profiler loop when `true`. |
+| `profiling.log_dir` | `null` | Profile output directory; defaults to `<runtime.base_dir>/profiles`. |
+| `profiling.warmup_steps` / `profiling.steps` | `5` / `3` | Warmup steps before tracing and traced training steps. |
+
+## This Branch
+
+The `gchat/main` branch trains a compact GChat transformer on TPU with bf16
+parameters and activations. The default speedrun shape is 12 layers, width 1536,
+8 query heads, 8 key/value heads, and 1024-token sequences. Attention uses the
+`SSSL` sliding-window pattern, tiled across layers, with the final layer forced
+to full-context attention. The model includes RoPE, QK RMS normalization, a
+squared-ReLU MLP, and a tied-shape but separate output projection head.
 
 ## Scaling dashboard
 

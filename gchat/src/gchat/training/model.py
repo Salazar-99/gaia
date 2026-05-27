@@ -9,12 +9,12 @@ import jax.numpy as jnp
 
 # Copied from nanochat
 @dataclass
-class GPTConfig:
+class ModelConfig:
     sequence_len: int = 2048
     vocab_size: int = 50257
     n_layer: int = 24
-    n_head: int = 12  # number of query heads
-    n_kv_head: int = 12  # number of key/value heads (GQA)
+    n_head: int = 8  # number of query heads # temp set to eight for training on v6e-8
+    n_kv_head: int = 8  # number of key/value heads (GQA)
     n_embd: int = 1536
     dtype: jnp.dtype = jnp.bfloat16
     param_dtype: jnp.dtype = jnp.bfloat16
@@ -24,7 +24,7 @@ class GPTConfig:
     window_pattern: str = "SSSL"
 
 
-def compute_window_sizes(config: GPTConfig) -> list[tuple[int, int]]:
+def compute_window_sizes(config: ModelConfig) -> list[tuple[int, int]]:
     pattern = config.window_pattern.upper()
     if not pattern or any(char not in "SL" for char in pattern):
         raise ValueError(
@@ -48,7 +48,7 @@ def compute_window_sizes(config: GPTConfig) -> list[tuple[int, int]]:
 
 
 class MLP(nnx.Module):
-    def __init__(self, config: GPTConfig, rngs: nnx.Rngs):
+    def __init__(self, config: ModelConfig, rngs: nnx.Rngs):
         super().__init__()
         self.w1 = nnx.Linear(
             in_features=config.n_embd,
@@ -75,44 +75,33 @@ class MLP(nnx.Module):
 
 
 class RoPE(nnx.Module):
-    """RoPE with MaxText-style frequency schedule.
-
-    If `embedding_dims` is smaller than the input head dimension, only that leading
-    slice is rotated and the remaining features pass through unchanged.
-    """
+    """RoPE with MaxText-style frequencies, rotating the leading half-head."""
 
     def __init__(
         self,
-        embedding_dims: int,
+        head_dim: int,
         min_timescale: int = 1,
         max_timescale: int = 10_000,
     ):
         super().__init__()
-        if embedding_dims % 2:
-            raise ValueError("embedding_dims for RoPE must be a multiple of 2.")
-        self.embedding_dims = embedding_dims
-        half_dim = embedding_dims // 2
-        fraction = 2 * jnp.arange(0, half_dim) / embedding_dims
+        rotary_dims = head_dim // 2
+        if rotary_dims % 2:
+            raise ValueError("half-head RoPE dimensions must be a multiple of 2.")
+        self.head_dim = head_dim
+        self.rotary_dims = rotary_dims
+        half_dim = rotary_dims // 2
+        fraction = 2 * jnp.arange(0, half_dim) / rotary_dims
         self._timescale = min_timescale * (max_timescale / min_timescale) ** fraction
 
-    def __call__(
-        self, inputs: jax.Array, position: jax.Array | None = None
-    ) -> jax.Array:
-        """Apply RoPE to Q or K. Shape [B, S, N, H]. If `position` is None, uses 0, 1, …, S-1 per row."""
+    def __call__(self, inputs: jax.Array) -> jax.Array:
+        """Apply RoPE to Q or K shaped [batch, sequence, heads, head_dim]."""
         if inputs.ndim != 4:
             raise ValueError("inputs must be rank 4 [batch, sequence, heads, dims].")
-        if inputs.shape[-1] < self.embedding_dims:
-            raise ValueError("inputs last dim must be at least embedding_dims.")
-        b, s, _, _ = inputs.shape
+        if inputs.shape[-1] != self.head_dim:
+            raise ValueError(f"inputs last dim must be {self.head_dim}.")
+        _, s, _, _ = inputs.shape
         dt = inputs.dtype
-        if position is None:
-            pos = jnp.arange(s, dtype=dt)[None, :, None]
-        else:
-            if position.shape != (b, s):
-                raise ValueError(
-                    f"position must be [B, S] = ({b}, {s}), got {position.shape}."
-                )
-            pos = position.astype(dt)[:, :, None]
+        pos = jnp.arange(s, dtype=dt)[None, :, None]
         ts = self._timescale.astype(dt)
         sinusoid_inp = pos / ts[None, None, :]
         sin_half = jnp.sin(sinusoid_inp).astype(dt)
@@ -121,8 +110,8 @@ class RoPE(nnx.Module):
         cos = jnp.concatenate([cos_half, cos_half], axis=-1)
         cos = cos[:, :, None, :]
         sin = sin[:, :, None, :]
-        rotary_inputs = inputs[..., : self.embedding_dims]
-        passthrough_inputs = inputs[..., self.embedding_dims :]
+        rotary_inputs = inputs[..., : self.rotary_dims]
+        passthrough_inputs = inputs[..., self.rotary_dims :]
         x1, x2 = jnp.split(rotary_inputs, 2, axis=-1)
         rotated = jnp.concatenate((-x2, x1), axis=-1)
         rotary_outputs = rotary_inputs * cos + rotated * sin
@@ -130,9 +119,8 @@ class RoPE(nnx.Module):
 
 
 class Attention(nnx.Module):
-    def __init__(self, config: GPTConfig, layer_idx: int, rngs: nnx.Rngs):
+    def __init__(self, config: ModelConfig, rngs: nnx.Rngs):
         super().__init__()
-        self.layer_idx = layer_idx
         self.n_heads = config.n_head
         self.n_kv_heads = config.n_kv_head
 
@@ -145,8 +133,7 @@ class Attention(nnx.Module):
         self.output_dim = self.head_dim * self.n_heads
         self.attention_output_dim = (self.n_heads + 2 * self.n_kv_heads) * self.head_dim
 
-        # Match the PyTorch reference by rotating only half of each head.
-        self.rope = RoPE(embedding_dims=self.head_dim // 2)
+        self.rope = RoPE(head_dim=self.head_dim)
         self.qk_norm = nnx.RMSNorm(
             self.head_dim,
             use_scale=False,
@@ -210,7 +197,7 @@ class Attention(nnx.Module):
 
 
 class TransformerBlock(nnx.Module):
-    def __init__(self, config: GPTConfig, layer_idx: int, rngs: nnx.Rngs):
+    def __init__(self, config: ModelConfig, rngs: nnx.Rngs):
         super().__init__()
         self.norm = nnx.RMSNorm(
             config.n_embd,
@@ -219,7 +206,7 @@ class TransformerBlock(nnx.Module):
             param_dtype=config.param_dtype,
             rngs=rngs,
         )
-        self.attn = Attention(config=config, layer_idx=layer_idx, rngs=rngs)
+        self.attn = Attention(config=config, rngs=rngs)
         self.mlp = MLP(config, rngs=rngs)
 
     def __call__(
@@ -232,8 +219,8 @@ class TransformerBlock(nnx.Module):
         return x
 
 
-class GPT(nnx.Module):
-    def __init__(self, config: GPTConfig, rngs: nnx.Rngs):
+class GChat(nnx.Module):
+    def __init__(self, config: ModelConfig, rngs: nnx.Rngs):
         super().__init__()
         self.config = config
         self.window_sizes = compute_window_sizes(config)
@@ -245,7 +232,7 @@ class GPT(nnx.Module):
             rngs=rngs,
         )
         self.blocks = nnx.List(
-            [TransformerBlock(config, i, rngs) for i in range(config.n_layer)]
+            [TransformerBlock(config, rngs) for _ in range(config.n_layer)]
         )
         self.lm_head = nnx.Linear(
             config.n_embd,
@@ -273,8 +260,8 @@ class GPT(nnx.Module):
     def __call__(self, x: jax.Array) -> jax.Array:
         x = self.embedding(x)
         x = self.prenorm(x)
-        for block in self.blocks:
-            x = block(x)
+        for block, window_size in zip(self.blocks, self.window_sizes):
+            x = block(x, window_size=window_size)
         x = self.postnorm(x)
         logits = self.lm_head(x)
         return logits
