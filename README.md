@@ -12,7 +12,7 @@ gaia/
 │   ├── layers/          # Reusable neural network layers (Attention, GELU, ...)
 │   └── metrics/         # Utilities for creating and writing OTel metrics
 ├── gpt2/                # GPT2 implementation in PyTorch
-├── gchat/           # nanochat implementation in Jax trained on TPUs
+├── gchat/               # nanochat implementation in Jax trained on TPUs
 ├── trm/                 # Simplified Tiny Recursive Model implementation
 ├── .gitignore
 ├── .python-version
